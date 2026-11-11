@@ -75,7 +75,6 @@ SK.dashboard = (function () {
     });
     $('#lblBtn').addEventListener('click', function (e) { ui.lbl = !ui.lbl; e.currentTarget.classList.toggle('on', ui.lbl); viewer.setLabelsAll(ui.lbl); });
     $('#explBtn').addEventListener('click', function (e) { if (viewer.isPlan()) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); } ui.expl = !ui.expl; e.currentTarget.classList.toggle('on', ui.expl); if (ui.expl) { setFloorBtn(''); viewer.setFloor(null); } viewer.setExplode(ui.expl); });
-    $('#modelFile').addEventListener('change', function (e) { importModel(e.target.files[0]); e.target.value = ''; });
 
     $('#panel').addEventListener('click', function (e) {
       var g = e.target.closest('[data-goto]'); if (g) { e.preventDefault(); setTab(g.dataset.goto); }
@@ -125,13 +124,13 @@ SK.dashboard = (function () {
   /* ---------- Навігація: 7 груп і підвкладки ---------- */
   var NAV = [
     { id: 'home', icon: '⌂', name: 'Огляд', tabs: ['overview'] },
-    { id: 'ctl', icon: '🎛', name: 'Пульт', title: 'Диспетчерська А-001 — ручне керування', tabs: ['control'] },
+    { id: 'ctl', icon: '🎛', name: 'Керування', title: 'Ручне керування з диспетчерської та автоматичні сценарії', tabs: ['control', 'scenarios'] },
     { id: 'sched', icon: '▦', name: 'Розклад', tabs: ['rooms', 'events'] },
-    { id: 'climate', icon: '☀', name: 'Клімат', tabs: ['comfort', 'scenarios'] },
+    { id: 'climate', icon: '☀', name: 'Клімат', title: 'Температура, повітря, освітлення', tabs: ['comfort'] },
     { id: 'sec', icon: '🛡', name: 'Безпека', tabs: ['security', 'access'] },
     { id: 'energy', icon: '⚡', name: 'Енергія', tabs: ['energy', 'power'] },
-    { id: 'infra', icon: '🏗', name: 'Об’єкт', tabs: ['wiring', 'equipment', 'territory'] },
-    { id: 'cfg', icon: '⚙', name: 'Опції', tabs: ['settings'] }
+    { id: 'infra', icon: '🏗', name: 'Техніка', title: 'Пристрої, комутація, територія', tabs: ['equipment', 'wiring', 'territory'] },
+    { id: 'cfg', icon: '⚙', name: 'Система', title: 'Налаштування прототипу', tabs: ['settings'] }
   ];
   function groupOf(t) { for (var i = 0; i < NAV.length; i++) if (NAV[i].tabs.indexOf(t) >= 0) return NAV[i].id; return 'home'; }
   function renderNav() {
@@ -170,7 +169,6 @@ SK.dashboard = (function () {
     var r = role();
     renderNav();
     $('#devBtn').hidden = r === 'guest';
-    $('#modelBtn').hidden = r !== 'admin';
     $('#devPop').hidden = true;
     var cm = $('#colorMode'), modes = Object.keys(CM).filter(function (k) { return r !== 'guest' || (k !== 'scenario' && k !== 'power'); });
     cm.innerHTML = modes.map(function (k) { return '<option value="' + k + '">' + CM[k].name + '</option>'; }).join('');
@@ -403,38 +401,79 @@ SK.dashboard = (function () {
     p.onclick = null; p.onchange = null;
     fn(p);
     /* Посилання на вкладки, недоступні поточній ролі, — звичайний текст */
-    U.$all('[data-goto]', p).forEach(function (a) { if (!tabAllowed(a.dataset.goto)) a.replaceWith(document.createTextNode(a.textContent)); });
+    U.$all('[data-goto]', p).forEach(function (a) {
+      if (tabAllowed(a.dataset.goto)) return;
+      if (a.classList.contains('kpi') || a.classList.contains('att-row')) { a.removeAttribute('data-goto'); a.removeAttribute('href'); a.classList.add('nolink'); }
+      else a.replaceWith(document.createTextNode(a.textContent));
+    });
+    sections(p);
     p.scrollTop = scroll;
     updateSecCount();
+  }
+
+  /* Єдина структура вкладок: кожен розділ (h3) згортається; довідкові розділи згорнуті одразу.
+     Стан «розгорнуто/згорнуто» запам'ятовується на сеанс окремо для кожної вкладки. */
+  var REF_SEC = /^(Як проходить команда|Схема інтеграції|Категорії навантажень|Обладнання|Кабельний журнал|Топологія мережі|Про прототип|Журнал змін|Журнал команд|Журнал проходів|Шафи автоматики|Контролери|Без порту|Користувачі|Групи доступу|Перевірка конфліктів|Зміни розкладу|Демо-дані|За блоками|Найбільші споживачі)/;
+  function sections(p) {
+    ui.sec = ui.sec || {};
+    U.$all(':scope > h3', p).forEach(function (h3) {
+      var title = h3.textContent.trim(), key = ui.tab + '|' + title.replace(/[\d().:·—–-].*$/, '').trim();
+      var det = document.createElement('details'), sum = document.createElement('summary'), body = document.createElement('div');
+      det.className = 'sec'; body.className = 'sec-b';
+      det.open = key in ui.sec ? ui.sec[key] : !REF_SEC.test(title);
+      var init = det.open;
+      while (h3.nextSibling && !(h3.nextSibling.nodeType === 1 && /^(H2|H3)$/.test(h3.nextSibling.tagName))) body.appendChild(h3.nextSibling);
+      p.insertBefore(det, h3); sum.appendChild(h3); det.appendChild(sum); det.appendChild(body);
+      det.addEventListener('toggle', function () { if (det.open === init) return; init = det.open; ui.sec[key] = det.open; if (det.open) renderPanel(true); });
+    });
   }
 
   function lockedNote(what) { if (role() === 'guest') return ''; return '<div class="locked">🔒 ' + what + ' — доступно ролі «Адміністратор».</div>'; }
 
   /* ---- Огляд ---- */
   function overview(p) {
-    var n = now(), cnt = { free: 0, busy: 0, booked: 0 }, t = 0, c = 0, k = 0, people = 0;
+    var n = now(), cnt = { free: 0, busy: 0, booked: 0 }, t = 0, c = 0, k = 0, people = 0, G = role() === 'guest';
+    var stuffy = [];
     B.bookableRooms().forEach(function (r) {
       cnt[S.status(r.id, n).status]++;
       var v = I3.read(r.id, n); t += v.temp; c += v.co2; k++; people += v.people;
+      if (v.co2 >= 1000) stuffy.push({ r: r, v: v });
     });
-    var pw = E.power(n), td = E.today(n), act = SEC.active();
-    var pr = S.pairAt(n);
-    var h = '<h2>Зведення по корпусу</h2><div class="muted small" style="margin-bottom:8px">' + esc(B.name) + ' · ' +
+    stuffy.sort(function (a, b) { return b.v.co2 - a.v.co2; });
+    var pw = E.power(n), act = SEC.active(), pr = S.pairAt(n);
+    var h = '<h2>Огляд корпусу</h2><div class="muted small" style="margin-bottom:8px">' + esc(B.name) + ' · ' +
       (pr ? pr.n + '-га пара (' + pr.start + '–' + pr.end + ')' : 'поза парою') + ' · <span class="demo-badge">симуляція</span></div>';
+
+    /* 1. Що потребує уваги — єдиний список із переходом у потрібний розділ */
+    var att = [];
+    if (!G) {
+      var ps = SK.power.state(n), fs = SK.faults.summary(n), ds = DS.summary(n), offN = Object.keys(SK.control.offList() || {}).length;
+      if (!ps.grid) att.push(['bad', 'Немає мережі — ' + (ps.genOn ? 'працює генератор' : 'живлення від ДБЖ'), 'power']);
+      if (act.length) att.push(['bad', 'Активних сповіщень безпеки: ' + act.length, 'security']);
+      if (fs.cabOff + fs.cabBatt + fs.cabLink + fs.ctrl) att.push(['warn', 'Проблеми шаф і контролерів: ' + (fs.cabOff + fs.cabBatt + fs.cabLink + fs.ctrl), 'wiring']);
+      if (ds.fault + ds.alarm) att.push(['warn', 'Пристроїв з несправністю чи тривогою: ' + (ds.fault + ds.alarm), 'equipment']);
+      if (offN) att.push(['off', 'Вимкнено вручну: ' + offN, 'control']);
+    }
+    if (stuffy.length) att.push(['warn', 'Аудиторій потребують провітрювання: ' + stuffy.length, 'comfort']);
+    h += att.length ? '<div class="att">' + att.map(function (a) {
+      return '<a href="#" class="att-row" data-goto="' + a[2] + '"><span class="lvl ' + a[0] + '">' + esc(a[1]) + '</span><span class="muted">відкрити →</span></a>';
+    }).join('') + '</div>' : '<div class="att ok"><span class="lvl good">Усе в нормі — нічого не потребує уваги</span></div>';
+
+    /* 2. Головні показники (клік — відповідний розділ) */
+    function K(v, l, tab, color) { return '<a href="#" class="kpi kpi-link" data-goto="' + tab + '"><div class="v"' + (color ? ' style="color:' + color + '"' : '') + '>' + v + '</div><div class="l">' + l + '</div></a>'; }
     h += '<div class="kpis">' +
-      kpi(cnt.free, 'вільних аудиторій', 'var(--free)') + kpi(cnt.busy, 'зайнятих', 'var(--busy)') + kpi(cnt.booked, 'заброньованих', 'var(--booked)') +
-      kpi(people, 'людей в аудиторіях') + kpi(U.fmt(t / k, 1) + ' °C', 'середня температура') + kpi(Math.round(c / k) + '', 'середній CO₂, ppm') +
-      (role() !== 'guest' ? kpi(U.fmt(pw.total / 1000, 1) + ' кВт', 'потужність зараз') + kpi(U.fmt(td.kwh, 0), 'кВт·год сьогодні') : '') +
-      (role() !== 'guest' ? kpi(act.length, 'активних сповіщень', act.length ? 'var(--bad)' : null) : '') +
-      (role() !== 'guest' ? kpi(DS.summary(n).total, 'розумних пристроїв') : '') + kpi(DS.parking(n).free, 'вільних паркомісць', 'var(--free)') + '</div>';
+      K(cnt.free + ' <small>з ' + k + '</small>', 'вільних аудиторій', 'rooms', 'var(--free)') +
+      K(people, 'людей в аудиторіях', 'rooms') +
+      K(U.fmt(t / k, 1) + ' °C', 'середня температура', 'comfort') +
+      K(Math.round(c / k), 'середній CO₂, ppm', 'comfort') +
+      (G ? '' : K(U.fmt(pw.total / 1000, 1) + ' кВт', 'потужність зараз', 'energy')) +
+      K(DS.parking(n).free, 'вільних паркомісць', 'territory', 'var(--free)') + '</div>';
 
-    var stuffy = B.bookableRooms().map(function (r) { return { r: r, v: I3.read(r.id, n) }; })
-      .filter(function (x) { return x.v.co2 >= 1000; }).sort(function (a, b) { return b.v.co2 - a.v.co2; }).slice(0, 5);
-    h += '<h3>Потребують провітрювання</h3>' + (stuffy.length ? '<table class="t"><tbody>' + stuffy.map(function (x) {
+    if (stuffy.length) h += '<h3>Потребують провітрювання</h3><table class="t"><tbody>' + stuffy.slice(0, 5).map(function (x) {
       return '<tr class="click" data-room="' + x.r.id + '"><td><b>' + x.r.id + '</b></td><td>' + esc(x.r.name) + '</td><td><span class="lvl ' + SEN.co2Level(x.v.co2) + '">' + x.v.co2 + ' ppm</span></td></tr>';
-    }).join('') + '</tbody></table>' : '<div class="muted small">Усі аудиторії в нормі.</div>');
+    }).join('') + '</tbody></table>';
 
-    if (role() !== 'guest') h += '<h3>Останні події</h3>' + eventsTable(store.state.events.slice(0, 5), false);
+    if (!G) h += '<h3>Останні події</h3>' + eventsTable(store.state.events.slice(0, 5), false);
 
     h += '<h3>Оголошення для студентів</h3>';
     h += store.state.announcements.slice(0, 3).map(function (a) {
@@ -746,7 +785,7 @@ SK.dashboard = (function () {
       '<div class="row" style="margin-top:6px"><button class="btn small" data-zone="REST">Показати</button></div>';
 
     h += '<h3>Майданчик ДГУ</h3><div class="small">' + esc(TR.zone('GEN').note) + ' Стан — вкладка <a href="#" data-goto="power">«Живлення»</a>.</div>' +
-      '<div class="note">Місць для куріння на території немає — кімнати для куріння з окремою витяжкою є на кожному поверсі (вкладка <a href="#" data-goto="comfort">«Комфорт»</a>).</div>';
+      '<div class="note">Місць для куріння на території немає — кімнати для куріння з окремою витяжкою є на кожному поверсі (вкладка <a href="#" data-goto="comfort">«Клімат»</a>).</div>';
 
     if (role() !== 'guest') h += '<h3>Пристрої території</h3><table class="t dev-list"><tbody>' + DEV.devices.filter(function (d) { return d.block === 'T'; }).map(function (d) {
       var s = DS.state(d, n);
@@ -898,7 +937,7 @@ SK.dashboard = (function () {
       if (a === 'wires') { setTab('wiring'); AT.focusDevice(d); return; }
       if (a === 'pwr') { AT.toastCmd(CT.toggle(d)); return; }
       if (sm === 'dev') FL.toggleDevice(d);
-      if (sm === 'trig') { FL.trigger(d); U.toast('Подію згенеровано — див. «Безпека»', 'warn'); }
+      if (sm === 'trig') { FL.trigger(d); U.toast('Подію згенеровано — див. «Безпека → Сповіщення»', 'warn'); }
       if (sm === 'ctrl' && inst) FL.toggleCtrl(W.instances(d.cabinet).filter(function (i) { return i.id === inst.id; })[0]);
       if (sm) { if (inW) AT.refocus(); renderRoomCard(); }
     };

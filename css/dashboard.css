@@ -286,3 +286,25 @@ details.inst.offline { border-color: var(--bad); } details.inst.warn { border-co
   .groups button .gl { font-size: 9.5px; }
 }
 .dc-port .grow { flex: 1 1 140px; }
+
+/* Огляд: «що потребує уваги» та показники-посилання */
+.att { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 4px 0 10px; background: var(--panel); }
+.att.ok { padding: 9px 12px; }
+.att-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; text-decoration: none; color: inherit; border-bottom: 1px solid var(--line); font-size: 13px; }
+.att-row:last-child { border-bottom: none; }
+.att-row:hover { background: var(--panel-2); }
+.att-row.nolink { cursor: default; } .att-row.nolink .muted { display: none; }
+a.kpi-link { text-decoration: none; color: inherit; display: block; }
+a.kpi-link:hover { border-color: var(--accent); }
+a.kpi-link.nolink { cursor: default; } a.kpi-link.nolink:hover { border-color: var(--line); }
+.kpi .v small { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* Розділи вкладок, що згортаються */
+details.sec { border-top: 1px solid var(--line); margin-top: 10px; }
+details.sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 8px 0 6px; user-select: none; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::before { content: "▸"; color: var(--muted); font-size: 12px; transition: transform .15s; }
+details.sec[open] > summary::before { transform: rotate(90deg); }
+details.sec > summary h3 { margin: 0 !important; }
+details.sec > summary:hover h3 { color: var(--accent); }
+details.sec > .sec-b { padding-bottom: 4px; }

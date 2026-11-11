@@ -292,10 +292,10 @@ SK.adminTabs = (function () {
     var fs = FL.summary(n), ps = PW.state(n), alarms = SEC.active().filter(function (e) { return e.sev === 'critical' || e.sev === 'serious'; }).length;
     var offs = CT.offList(), offIds = Object.keys(offs);
     var h = '<div class="row"><h2 class="grow">Диспетчерська · А-001</h2><button class="btn small" data-ct="admRoom" title="Показати адміністративне приміщення на карті">◎ А-001 на карті</button></div><div class="small muted">Робоче місце оператора: стан корпусу, ручне керування пристроями й дверима, журнал команд.</div>';
-    h += '<div class="chain">' + ['👤 Оператор А-001', '🗄 Сервер А-002', '📡 MQTT …/set', '⚡ Шафа ЩА', '🔌 Контролер · порт', '💡 Пристрій', '✓ Підтвердження ≤ 2 с']
-      .map(function (x) { return '<span>' + x + '</span>'; }).join('<i>→</i>') + '</div>';
     h += '<div class="kpis">' + D().kpi(alarms, 'тривог', alarms ? 'var(--bad)' : null) + D().kpi(fs.any, 'несправностей', fs.any ? 'var(--warn)' : null) +
       D().kpi(offIds.length, 'вимкнено вручну') + D().kpi('<span class="lvl ' + (ps.grid ? 'good' : ps.genOn ? 'warn' : 'bad') + '">' + esc(ps.grid ? 'мережа' : ps.genOn ? 'ДГУ' : 'ДБЖ') + '</span>', 'живлення') + '</div>';
+    h += '<h3>Як проходить команда</h3><div class="chain">' + ['👤 Оператор А-001', '🗄 Сервер А-002', '📡 MQTT …/set', '⚡ Шафа ЩА', '🔌 Контролер · порт', '💡 Пристрій', '✓ Підтвердження ≤ 2 с']
+      .map(function (x) { return '<span>' + x + '</span>'; }).join('<i>→</i>') + '</div>';
 
     /* --- Приміщення --- */
     var rooms = B.rooms.slice().sort(function (a, b) { return a.block < b.block ? -1 : a.block > b.block ? 1 : a.floor - b.floor || (a.id < b.id ? -1 : 1); });
@@ -552,7 +552,7 @@ SK.adminTabs = (function () {
   function runSim(act) {
     var f = st.focus, d = f && f.type === 'dev' ? DEV.device(f.id) : null;
     if (act === 'dev' && d) FL.toggleDevice(d);
-    if (act === 'trig' && d) { FL.trigger(d); U.toast('Подію згенеровано — див. «Безпека»', 'warn'); }
+    if (act === 'trig' && d) { FL.trigger(d); U.toast('Подію згенеровано — див. «Безпека → Сповіщення»', 'warn'); }
     if (act.indexOf('ctrl:') === 0) FL.toggleCtrl(W.instances(st.wCab).filter(function (i) { return i.id === act.slice(5); })[0]);
     if (act === 'feed') FL.toggleCabFeed(st.wCab);
     if (act === 'ups') FL.toggleCabUps(st.wCab);

@@ -60,14 +60,13 @@
       <input type="text" id="mapSearch" class="map-search" placeholder="🔍 Знайти: А-305" autocomplete="off" title="Знайти приміщення на карті (Enter)">
       <select id="colorMode" title="Що показувати кольором"></select>
       <button class="btn small" id="devBtn" title="Показати розумні пристрої на плані">📡 Пристрої</button>
-      <label class="btn small" id="modelBtn" title="Завантажити готову 3D-модель корпусу (.glb)">⬆ Модель корпусу<input type="file" id="modelFile" accept=".glb,.gltf" hidden></label>
     </div>
     <!-- Ліва панель: «ліфт» поверхів + режими перегляду -->
     <div class="v-side">
       <div class="v-floors" id="floors" role="group" aria-label="Поверх"></div>
       <div class="v-views">
         <button class="vbtn" id="planBtn" title="План поверху — вигляд згори">▦<span>План</span></button>
-        <button class="vbtn" id="explBtn" title="Розвести поверхи по висоті">☰<span>Поверхи</span></button>
+        <button class="vbtn" id="explBtn" title="Розвести поверхи по висоті">☰<span>Розсунути</span></button>
         <button class="vbtn" id="lblBtn" title="Підписи всіх приміщень">Aa<span>Підписи</span></button>
         <button class="vbtn" id="homeBtn" title="Типовий вигляд">⌂<span>Огляд</span></button>
       </div>
@@ -83,17 +82,17 @@
     <nav class="tabs" id="tabs" role="tablist">
       <button data-tab="overview" class="on">Огляд</button>
       <button data-tab="control">Диспетчерська</button>
+      <button data-tab="scenarios">Сценарії</button>
       <button data-tab="rooms">Аудиторії</button>
       <button data-tab="events">Події</button>
-      <button data-tab="scenarios">Сценарії</button>
-      <button data-tab="comfort">Комфорт</button>
-      <button data-tab="security">Безпека <span class="cnt" id="secCnt" hidden></span></button>
+      <button data-tab="comfort">Клімат</button>
+      <button data-tab="security">Сповіщення <span class="cnt" id="secCnt" hidden></span></button>
       <button data-tab="access">Доступ</button>
-      <button data-tab="energy">Енергія</button>
-      <button data-tab="power">Живлення</button>
+      <button data-tab="energy">Споживання</button>
+      <button data-tab="power">Резервне живлення</button>
+      <button data-tab="equipment">Пристрої</button>
       <button data-tab="wiring">Комутація</button>
       <button data-tab="territory">Територія</button>
-      <button data-tab="equipment">Обладнання i3</button>
       <button data-tab="settings">Налаштування</button>
     </nav>
     <div class="panel-body" id="panel"></div>
