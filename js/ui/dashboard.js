@@ -7,7 +7,7 @@ SK.dashboard = (function () {
   var ui = { tab: 'overview', colorMode: 'status', room: null, lastIn: {},
     rf: { block: '', floor: '', status: '', type: '' }, evFilter: 'all', secRoom: null,
     device: null, devCats: null, df: { cat: '', floor: '', status: '' }, rcDur: '90' };
-  var viewer;
+  var viewer, pressing = false;
 
   function now() { return store.clock.now(); }
   function role() { return store.state.role; }
@@ -36,6 +36,10 @@ SK.dashboard = (function () {
       defaultModelUrl: 'assets/models/korpus9.glb'
     });
     initDevLayer(); initCardDrag();
+    /* Поки кнопку миші/палець затиснуто на картці чи панелі, періодичне оновлення їх не чіпає —
+       інакше елемент під курсором замінюється і клік губиться */
+    ['#roomCard', '#panel'].forEach(function (s) { $(s).addEventListener('pointerdown', function () { pressing = true; }); });
+    ['pointerup', 'pointercancel'].forEach(function (t) { window.addEventListener(t, function () { pressing = false; }); });
     viewer.restoreModel().then(function (res) { if (res) U.toast('3D-модель «' + res.name + '» відновлено. Прив’язано аудиторій: ' + res.bound); });
 
     /* Поверхи */
@@ -211,7 +215,7 @@ SK.dashboard = (function () {
     }
     serviceChecks(n);
     SK.power.check(n); SK.faults.check(n);
-    if (['overview', 'comfort', 'energy', 'territory', 'power', 'wiring'].indexOf(ui.tab) >= 0) renderPanel(true);
+    if (['overview', 'comfort', 'energy', 'territory', 'power', 'wiring'].indexOf(ui.tab) >= 0) renderPanel(true, true);
   }
 
   function renderAll(soft) { updateClock(); renderPanel(soft); renderRoomCard(); updateSecCount(); }
@@ -269,7 +273,10 @@ SK.dashboard = (function () {
   /* ---------------- Картка аудиторії ---------------- */
   function renderRoomCard() {
     var box = $('#roomCard');
-    if (box.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
+    if (pressing) return;
+    /* Відкритий список не перемальовуємо — але лише доки картка та сама; інакше нове приміщення не відкрилося б */
+    var want = ui.device ? 'dev:' + ui.device : ui.room ? 'room:' + ui.room : null;
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'SELECT' && want === cardKey && !box.hidden) return;
     if (ui.device) { renderDeviceCard(box); return; }
     if (!ui.room) { box.hidden = true; return; }
     var r = B.room(ui.room), n = now(), v = I3.read(r.id, n), s = S.status(r.id, n);
@@ -331,7 +338,7 @@ SK.dashboard = (function () {
     h = h.replace(HEND, HEND + '<div class="row dc-acts">' + (role() !== 'guest' ? '<button class="btn small primary" data-act="model" title="Окрема 3D-модель приміщення (або подвійний клік на карті)">🔍 Модель кімнати</button>' : '') +
       '<button class="btn small' + (iso ? ' on' : '') + '" data-act="iso" title="Показати лише це приміщення">' + (iso ? '✕ Показати все' : '◎ Окремо') + '</button>' +
       '<button class="btn small" data-act="focus" title="Наблизити камеру">⌖ Наблизити</button><button class="btn small" data-act="route" title="Як дійти від входу">➜ Маршрут</button></div>');
-    box.innerHTML = cardHtml(h); box.hidden = false;
+    setCard(box, h, 'room:' + r.id);
     box.onclick = function (e) {
       var pw = e.target.closest('[data-pwr]');
       if (pw) { SK.adminTabs.toastCmd(SK.control.toggle(DEV.device(pw.dataset.pwr))); return; }
@@ -345,7 +352,7 @@ SK.dashboard = (function () {
       if (b.dataset.act === 'route') { viewer.route(r.id); viewer.focusRoom(r.id); }
     };
     box.onchange = function (e) {
-      if (e.target.id === 'rcDur') ui.rcDur = e.target.value;
+      if (e.target.id === 'rcDur') { ui.rcDur = e.target.value; e.target.blur(); }
       if (e.target.id === 'rcMode') {
         var mode = e.target.value, mins = ui.rcDur ? +ui.rcDur : null;
         SK.scenarios.apply([r.id], mode, mins);
@@ -353,6 +360,24 @@ SK.dashboard = (function () {
         e.target.blur();
       }
     };
+  }
+  /* Панель і картки перемальовуються що дві секунди, тому стан, який змінив користувач
+     (розгорнуті блоки, прокрутка картки), зберігається між перемальовуваннями. */
+  var detOpen = {}, cardKey = null;
+  function keepDetails(root, prefix) {
+    U.$all('details:not(.sec)', root).forEach(function (d) {
+      var sm = d.querySelector('summary'); if (!sm) return;
+      var key = prefix + '|' + sm.textContent.split(/[(·]/)[0].trim();
+      if (key in detOpen) d.open = detOpen[key];
+      sm.addEventListener('click', function (e) { if (!e.target.closest('button, a')) detOpen[key] = !d.open; });
+    });
+  }
+  function forgetDetails(prefix) { Object.keys(detOpen).forEach(function (k) { if (k.indexOf(prefix) === 0) delete detOpen[k]; }); }
+  function setCard(box, h, key) {
+    var b = box.querySelector('.rc-b'), sc = b && cardKey === key && !box.hidden ? b.scrollTop : 0;
+    box.innerHTML = cardHtml(h); box.hidden = false; cardKey = key;
+    keepDetails(box, key);
+    b = box.querySelector('.rc-b'); if (b && sc) b.scrollTop = sc;
   }
   /* Картка = заголовок (перетягується) + тіло, що прокручується */
   function cardHtml(h) {
@@ -391,15 +416,22 @@ SK.dashboard = (function () {
   }
 
   /* ---------------- Панель вкладок ---------------- */
-  function renderPanel(soft) {
+  function renderPanel(soft, fromTick) {
     var p = $('#panel');
     var ae = document.activeElement;
     if (soft && ae && p.contains(ae) && /INPUT|SELECT|TEXTAREA/.test(ae.tagName)) return; // не заважаємо введенню
+    if (soft && pressing) return;
     var scroll = p.scrollTop;
     var fn = { overview: overview, rooms: rooms, comfort: comfort, security: security, energy: energy, territory: territory, equipment: equipment, settings: settings }[ui.tab] || (SK.adminTabs || {})[ui.tab];
+    /* Періодичне оновлення не повинно стирати те, що користувач уже ввів у поля форми */
+    var dirty = {};
+    if (fromTick) U.$all('input[id], textarea[id]', p).forEach(function (i) {
+      if (i.type !== 'checkbox' && i.type !== 'radio' && i.type !== 'file' && i.value !== i.defaultValue) dirty[i.id] = [i.value, i.defaultValue];
+    });
     p.innerHTML = '';
     p.onclick = null; p.onchange = null;
     fn(p);
+    Object.keys(dirty).forEach(function (id) { var i = document.getElementById(id); if (i && p.contains(i) && i.defaultValue === dirty[id][1]) i.value = dirty[id][0]; });
     /* Посилання на вкладки, недоступні поточній ролі, — звичайний текст */
     U.$all('[data-goto]', p).forEach(function (a) {
       if (tabAllowed(a.dataset.goto)) return;
@@ -407,6 +439,7 @@ SK.dashboard = (function () {
       else a.replaceWith(document.createTextNode(a.textContent));
     });
     sections(p);
+    keepDetails(p, 'tab:' + ui.tab);
     p.scrollTop = scroll;
     updateSecCount();
   }
@@ -924,7 +957,7 @@ SK.dashboard = (function () {
     }[d.kind];
     if (extra) h += '<details><summary>Про пристрій</summary><div class="small muted">' + esc(extra) + '</div></details>';
 
-    box.innerHTML = cardHtml(h); box.hidden = false;
+    setCard(box, h, 'dev:' + d.id);
     box.onchange = null;
     box.onclick = function (e) {
       var b = e.target.closest('button'); if (!b || b.disabled) return;
@@ -996,7 +1029,7 @@ SK.dashboard = (function () {
     rd.readAsArrayBuffer(file);
   }
 
-  return { kpi: kpi, sel: sel, metric: metric, lockedNote: lockedNote, bindRoomRows: bindRoomRows, showDevice: showDevice, setDevCats: setDevCats, openDevice: openDevice, renderCard: renderRoomCard,
+  return { kpi: kpi, sel: sel, metric: metric, lockedNote: lockedNote, bindRoomRows: bindRoomRows, showDevice: showDevice, setDevCats: setDevCats, openDevice: openDevice, forgetDetails: forgetDetails, renderCard: renderRoomCard,
     setFloorBtn: setFloorBtn, renderPanel: renderPanel, now: now, eventsTable: eventsTable,
     init: init, setTab: setTab, get viewer() { return viewer; }, ui: ui, setSimTime: setSimTime, setColorMode: function (m) {
     ui.colorMode = m; $('#colorMode').value = m; viewer.refresh(); renderLegend();

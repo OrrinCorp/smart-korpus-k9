@@ -510,6 +510,7 @@ SK.adminTabs = (function () {
   }
   /* Виділення пристрою: траса на карті + та сама плаваюча картка пристрою, що й при кліку на карті */
   function focusDevice(d, back) {
+    D().forgetDetails('tab:wiring');
     if (!d) return;
     if (d.cabinet && d.cabinet !== st.wCab) st.wCab = d.cabinet;
     st.focus = { type: 'dev', id: d.id };
@@ -517,7 +518,7 @@ SK.adminTabs = (function () {
     D().openDevice(d, back);
     var c = document.getElementById('wFocus'); if (c) c.scrollIntoView({ block: 'nearest' });
   }
-  function focusInst(id) { st.focus = { type: 'inst', id: id }; D().renderPanel(); applyFocus(); }
+  function focusInst(id) { D().forgetDetails('tab:wiring'); st.focus = { type: 'inst', id: id }; D().renderPanel(); applyFocus(); }
   function clearFocus() { var dev = st.focus && st.focus.type === 'dev'; st.focus = null; D().renderPanel(); D().viewer.setFocus(null); if (dev) D().openDevice(null); }
 
   var PORT_TXT = { ok: 'норма', fault: 'несправність пристрою', alarm: 'тривога', off: 'без живлення / контролер offline', stale: 'немає зв’язку шафи', manual: 'вимкнено вручну' };
