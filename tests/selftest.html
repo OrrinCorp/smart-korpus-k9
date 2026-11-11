@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Самоперевірка — Розумний корпус К9</title>
+<link rel="stylesheet" href="../css/base.css">
+<script src="../js/core/theme.js"></script>
+<style>body{padding:16px} li.ok{color:var(--good)} li.fail{color:var(--bad);font-weight:600} #viewer{width:400px;height:240px}</style>
+</head>
+<body>
+<h2>Самоперевірка прототипу (етап «Перевірка», ТЗ п. 6)</h2>
+<p class="muted small">Увага: тест скидає демо-дані (бронювання, журнал подій) у цьому браузері.</p>
+<ul id="out"></ul>
+<div id="viewer" class="viewer"></div>
+<script>try { localStorage.removeItem('sk9_state_v2'); } catch (e) {}</script>
+<script src="../vendor/three/three.min.js"></script>
+<script src="../vendor/three/OrbitControls.js"></script>
+<script src="../vendor/three/GLTFLoader.js"></script>
+<script src="../js/core/util.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/data/building.js"></script>
+<script src="../js/data/schedule-data.js"></script>
+<script src="../js/data/territory.js"></script>
+<script src="../js/data/devices-i3.js"></script>
+<script src="../js/core/uni-events.js"></script>
+<script src="../js/core/schedule.js"></script>
+<script src="../js/core/scenarios.js"></script>
+<script src="../js/core/power.js"></script>
+<script src="../js/core/sensors.js"></script>
+<script src="../js/core/i3-adapter.js"></script>
+<script src="../js/core/energy.js"></script>
+<script src="../js/core/security.js"></script>
+<script src="../js/core/devices.js"></script>
+<script src="../js/core/wiring.js"></script>
+<script src="../js/core/faults.js"></script>
+<script src="../js/core/control.js"></script>
+<script src="../js/viewer/viewer3d.js"></script>
+<script src="../js/viewer/room-viewer.js"></script>
+<script src="../js/ui/charts.js"></script>
+<script src="../js/ui/colormodes.js"></script>
+<script src="../js/tools/docx.js"></script>
+<script src="../js/tools/wiring-doc.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out'), pass = 0, fail = 0;
+  function t(name, fn) {
+    var li = document.createElement('li');
+    try { var r = fn(); if (r === false) throw new Error('умова не виконана'); li.className = 'ok'; li.textContent = '✓ ' + name + (typeof r === 'string' ? ' — ' + r : ''); pass++; }
+    catch (e) { li.className = 'fail'; li.textContent = '✕ ' + name + ': ' + (e && e.message || e); fail++; }
+    out.appendChild(li);
+  }
+  var B = SK.building, S = SK.schedule, st = SK.store;
+  var mon = new Date(); mon.setDate(mon.getDate() - (SK.util.dow(mon) - 1)); mon.setHours(10, 0, 0, 0);
+
+  t('Модель корпусу: блоки та аудиторії', function () {
+    var ids = {}; B.rooms.forEach(function (r) { if (ids[r.id]) throw new Error('дубль ' + r.id); ids[r.id] = 1; });
+    return B.blocks.length === 3 && B.rooms.length > 100 ? B.rooms.length + ' приміщень, ' + B.bookableRooms().length + ' бронюються' : false;
+  });
+  t('Аудиторії не перетинаються на одному поверсі', function () {
+    var bad = [];
+    B.rooms.forEach(function (a) { B.rooms.forEach(function (b) {
+      if (a.id < b.id && a.block === b.block && a.floor === b.floor && a.x0 < b.x1 - 0.01 && b.x0 < a.x1 - 0.01 && a.y0 < b.y1 - 0.01 && b.y0 < a.y1 - 0.01) bad.push(a.id + '/' + b.id);
+    }); });
+    if (bad.length) throw new Error(bad.slice(0, 5).join(', '));
+  });
+  t('Розклад згенеровано', function () { var n = S.lessons().length; return n > 200 ? n + ' занять, ' + S.groups.length + ' груп' : false; });
+  t('Є навмисний конфлікт для демонстрації', function () { return S.conflicts().some(function (c) { return c.kind === 'room'; }); });
+  t('Статуси аудиторій у пн 10:00', function () {
+    var c = { free: 0, busy: 0, booked: 0 };
+    B.bookableRooms().forEach(function (r) { c[S.status(r.id, mon).status]++; });
+    return c.busy > 0 && c.free > 0 ? JSON.stringify(c) : false;
+  });
+  t('Бронювання вільної аудиторії та відмова на зайнятій', function () {
+    st.clock.set(new Date(mon.getTime() - 3600000));
+    var free = S.freeRooms(mon, 3)[0];
+    var err = S.book(free.id, mon, 3, 'тест', 'тест');
+    if (err) throw new Error(err);
+    if (S.status(free.id, mon, 3).status !== 'booked') throw new Error('статус не «заброньована»');
+    var err2 = S.book(free.id, mon, 3, 'тест', 'тест');
+    return !!err2;
+  });
+  t('Додавання заняття перевіряє конфлікт', function () {
+    var l = S.lessons().filter(function (x) { return !x.imported; })[0];
+    return !!S.checkLesson({ room: l.room, day: l.day, pair: l.pair, group: 'КН-11' });
+  });
+  t('Датчики: CO₂ зростає під час пари', function () {
+    var l = S.lessons().filter(function (x) { return x.day === 1 && x.pair === 2; })[0];
+    var a = new Date(mon); a.setHours(9, 52); var b = new Date(mon); b.setHours(11, 5);
+    var v1 = SK.sensors.read(l.room, a).co2, v2 = SK.sensors.read(l.room, b).co2;
+    return v2 > v1 + 200 ? v1 + ' → ' + v2 + ' ppm' : false;
+  });
+  t('Автовимкнення світла в порожній аудиторії', function () {
+    var l = S.lessons().filter(function (x) { return x.day === 1 && x.pair === 2 && !S.lessonsAt(x.room, 1, 3).length; })[0];
+    var d = new Date(mon); d.setHours(11, 25);
+    var on = SK.sensors.read(l.room, d, { automation: false }).lightOn, auto = SK.sensors.read(l.room, d, { automation: true }).lightOn;
+    return on && !auto;
+  });
+  t('Енергія: заощадження > 0', function () {
+    var d = new Date(mon); d.setHours(16, 0); var td = SK.energy.today(d);
+    return td.saved > 0 ? SK.util.fmt(td.kwh, 0) + ' кВт·год, заощаджено ' + SK.util.fmt(td.saved, 0) : false;
+  });
+  t('Тиждень енергоспоживання', function () { return SK.energy.week(mon).length === 7; });
+  t('Безпека: тестові події та зміна статусу', function () {
+    st.state.role = 'admin';
+    SK.security.TESTS.forEach(function (x) { x.run(); });
+    var ev = SK.security.active()[0];
+    SK.security.setStatus(ev.id, 'ack'); SK.security.setStatus(ev.id, 'closed');
+    return st.state.events.length === SK.security.TESTS.length && ev.status === 'closed' && SK.security.toCSV().length > 100;
+  });
+  t('Ролі: гість не має прав', function () { st.state.role = 'guest'; return !SK.security.can('ack') && !SK.security.can('test'); });
+  t('Обладнання i3: шафи та пристрої', function () { var tt = SK.devicesI3.totals(); return SK.devicesI3.cabinets.length === 12 && Object.keys(tt.kinds).length > 15 ? Object.keys(tt.controllers).join(', ') : false; });
+  t('Реєстр пристроїв: усі категорії, унікальні ID, координати', function () {
+    var ids = {}, R = SK.devicesI3;
+    R.devices.forEach(function (d) {
+      if (ids[d.id]) throw new Error('дубль ' + d.id); ids[d.id] = 1;
+      if (!isFinite(d.x) || !isFinite(d.y) || !isFinite(d.z)) throw new Error('координати ' + d.id);
+      if (!R.CATS[d.cat]) throw new Error('категорія ' + d.id);
+    });
+    var t = R.totals();
+    Object.keys(R.CATS).forEach(function (c) { if (!t.cats[c]) throw new Error('порожня категорія ' + c); });
+    return R.devices.length + ' пристроїв: ' + Object.keys(t.cats).map(function (c) { return c + ' ' + t.cats[c]; }).join(', ');
+  });
+  t('Пристрої всередині своїх приміщень', function () {
+    var bad = SK.devicesI3.devices.filter(function (d) {
+      if (!d.room) return false; var r = B.room(d.room);
+      return d.x < r.x0 - 0.01 || d.x > r.x1 + 0.01 || d.y < r.y0 - 0.01 || d.y > r.y1 + 0.01;
+    });
+    if (bad.length) throw new Error(bad.slice(0, 4).map(function (d) { return d.id; }).join(', '));
+  });
+  t('Стан кожного пристрою обчислюється', function () {
+    var c = {}; SK.devicesI3.devices.forEach(function (d) { var s = SK.devices.state(d, mon); if (!SK.devices.STATUS[s.status]) throw new Error(d.id); c[s.status] = (c[s.status] || 0) + 1; });
+    return JSON.stringify(c);
+  });
+  t('Парковка: вдень зайнята, вночі вільна', function () {
+    var night = new Date(mon); night.setHours(3); var a = SK.devices.parking(mon), b = SK.devices.parking(night);
+    return a.total === 50 && a.free < b.free ? 'пн 10:00 вільно ' + a.free + '/50, о 03:00 — ' + b.free : false;
+  });
+  t('На кожному поверсі обох блоків: 2 санвузли (Ж, Ч) і кімната для куріння', function () {
+    ['A', 'B'].forEach(function (b) { for (var f = 0; f <= 4; f++) {
+      var rs = B.rooms.filter(function (r) { return r.block === b && r.floor === f; });
+      var wc = rs.filter(function (r) { return r.type === 'wc'; }).length, sm = rs.filter(function (r) { return r.type === 'smoking'; }).length;
+      if (wc < 2 || sm < 1) throw new Error(b + f + ': санвузлів ' + wc + ', курилень ' + sm);
+    } });
+    if (SK.territory.zone('SMOKE')) throw new Error('залишилась зона на території');
+    return B.rooms.filter(function (r) { return r.type === 'wc'; }).length + ' санвузлів, ' + B.rooms.filter(function (r) { return r.type === 'smoking'; }).length + ' кімнат для куріння';
+  });
+  t('Кімната для куріння: люди на перерві, витяжка, PM2.5, двері', function () {
+    var r = B.rooms.filter(function (x) { return x.type === 'smoking'; })[0], br = new Date(mon); br.setHours(11, 15);
+    var v = SK.sensors.read(r.id, br);
+    var devs = SK.devicesI3.roomDevices(r).map(function (d) { return d.kind; });
+    if (['exhaust', 'pm', 'pir', 'door'].some(function (k) { return devs.indexOf(k) < 0; })) throw new Error('бракує пристроїв: ' + devs.join());
+    var ev = SK.security.TESTS.filter(function (x) { return x.type === 'smoke_door'; })[0].run();
+    var dd = SK.devicesI3.roomDevices(ev.room).filter(function (d) { return d.kind === 'door'; })[0];
+    var st2 = SK.devices.state(dd, br).status; SK.security.setStatus(ev.id, 'closed');
+    return v.people > 0 && v.smoking.exhaust && st2 === 'fault' ? r.id + ': ' + v.people + ' ос., PM2.5 ' + v.pm25 : false;
+  });
+  t('Подія «вейп» → пристрій у тривозі', function () {
+    st.state.events = [];
+    var ev = SK.security.TESTS.filter(function (x) { return x.type === 'vape'; })[0].run();
+    var dev = SK.devicesI3.roomDevices(ev.room).filter(function (d) { return d.kind === 'vape'; })[0];
+    if (SK.devices.state(dev, mon).status !== 'alarm') throw new Error('немає тривоги на ' + dev.id);
+    return true;
+  });
+  t('Поверхи: А і Б по 5 (0–4), на 0-му немає аудиторій, є адмін. приміщення', function () {
+    ['A', 'B'].forEach(function (b) {
+      var fl = {}; B.rooms.filter(function (r) { return r.block === b; }).forEach(function (r) { fl[r.floor] = 1; });
+      if (Object.keys(fl).join() !== '0,1,2,3,4') throw new Error('блок ' + b + ': ' + Object.keys(fl).join());
+    });
+    if (B.rooms.some(function (r) { return r.floor === 0 && r.bookable; })) throw new Error('аудиторія на 0-му поверсі');
+    var a = B.adminRoom(); return a && a.floor === 0 ? a.id + ' · ' + a.name : false;
+  });
+  t('Сценарії: розклад → «Заняття», ніч → «Неробочий час»', function () {
+    var l = S.lessons().filter(function (x) { return x.day === 1 && x.pair === 2 && !x.imported; })[0];
+    var night = new Date(mon); night.setHours(22, 0);
+    var a = SK.sensors.read(l.room, mon).effMode, b = SK.sensors.read(l.room, night).effMode;
+    return a === 'lesson' && b === 'night' ? l.room + ': ' + a + ' / ' + b : false;
+  });
+  t('Сценарії: ручний режим із терміном і нове правило', function () {
+    st.clock.set(new Date(mon));
+    var r = B.bookableRooms()[3];
+    SK.scenarios.apply([r.id], 'exam', 30);
+    if (SK.sensors.read(r.id, mon).effMode !== 'exam') throw new Error('ручний не діє');
+    if (SK.sensors.read(r.id, new Date(mon.getTime() + 31 * 60000)).mode !== 'auto') throw new Error('термін не спливає');
+    SK.scenarios.saveRule({ name: 'Тест', type: 'time', sc: 'presentation', prio: 95, on: true, days: [1], from: '09:00', to: '11:00', target: { rooms: [B.bookableRooms()[5].id] } });
+    var ok = SK.sensors.read(B.bookableRooms()[5].id, mon).effMode === 'presentation';
+    SK.scenarios.reset(); SK.scenarios.apply([r.id], 'auto');
+    return ok;
+  });
+  t('Живлення: відключення → ДГУ, сценарій «Резервне живлення», менше споживання', function () {
+    st.clock.set(new Date(mon));
+    var before = SK.energy.power(mon).total;
+    SK.power.startOutage(false);
+    var later = new Date(mon.getTime() + 5 * 60000), s = SK.power.state(later);
+    var r = B.bookableRooms()[0], sc = SK.sensors.read(r.id, later).effMode, after = SK.energy.power(later).total;
+    st.clock.set(later); SK.power.restore();
+    return s.phase === 'gen' && sc === 'blackout' && after < before ? 'ДГУ: ' + s.gen + ', ' + SK.util.fmt(before / 1000, 0) + ' → ' + SK.util.fmt(after / 1000, 0) + ' кВт' : false;
+  });
+  t('Живлення: ДГУ не запустилася → сервер вимикається при розряді ДБЖ', function () {
+    var t0 = new Date(mon.getTime() + 3600000); st.clock.set(t0);
+    SK.power.startOutage(true);
+    var s = SK.power.state(new Date(t0.getTime() + 45 * 60000));
+    st.clock.set(new Date(t0.getTime() + 46 * 60000)); SK.power.restore();
+    return s.genFail && s.serverDown;
+  });
+  t('Доступ за відбитком: викладач — так, невідомий/без прав — ні', function () {
+    st.clock.set(new Date(mon));
+    var office = SK.security.doors.filter(function (d) { return d.zone === 'office'; })[0];
+    var server = SK.security.doors.filter(function (d) { return d.zone === 'server'; })[0];
+    var tch = SK.security.users().filter(function (u) { return u.group === 'teachers' && u.prints; })[0];
+    var a = SK.security.attempt(tch.id, office.id), b = SK.security.attempt(null, office.id), c = SK.security.attempt(tch.id, server.id);
+    return a.ok && !b.ok && !c.ok ? c.reason : false;
+  });
+  t('Комутація: кожен провідний пристрій має порт і шафу свого поверху', function () {
+    var bad = SK.devicesI3.devices.filter(function (d) { return !d.conn || !d.conn.length; });
+    if (bad.length) throw new Error('без підключення: ' + bad.slice(0, 3).map(function (d) { return d.id; }).join(', '));
+    var wrong = SK.wiring.links.filter(function (l) { return l.inst && l.inst.cabinet !== l.device.cabinet; });
+    if (wrong.length) throw new Error('чужа шафа');
+    SK.wiring.links.forEach(function (l) { if (l.inst && l.inst.used[l.type] > SK.wiring.POOLS[l.inst.model].ports[l.type]) throw new Error('переповнено ' + l.inst.id); });
+    var c = SK.wiring.cables(); return SK.wiring.links.length + ' з’єднань; кабелю всього ≈ ' + Object.keys(c).reduce(function (a, k) { return a + c[k]; }, 0) + ' м';
+  });
+  t('Розклад подій: подія бронює аудиторію, перевірка накладок', function () {
+    var ev = SK.uniEvents.list()[0], d = new Date(ev.date + 'T12:00:00');
+    var p = S.PAIRS.filter(function (x) { return x.s < SK.uniEvents.toMin(ev.end) && x.e > SK.uniEvents.toMin(ev.start); })[0];
+    var s = S.status(ev.room, d, p.n);
+    var err = SK.uniEvents.save({ title: 'Накладка', type: 'meeting', date: ev.date, start: ev.start, end: ev.end, room: ev.room, audience: 'all' });
+    return (s.status === 'booked' || s.status === 'busy') && !!err;
+  });
+  t('Ролі: гість не бачить технічних вкладок і пристроїв, відповідальна особа — комутації', function () {
+    st.state.role = 'guest'; var g = SK.security.can('access') || SK.security.can('scenario'); SK.RoomView.open(B.rooms[0].id); g = g || SK.RoomView.isOpen();
+    st.state.role = 'responsible'; var r1 = SK.security.can('scenario') && !SK.security.can('access');
+    st.state.role = 'admin'; return !g && r1;
+  });
+  t('Комутація: підібрані моделі Atom за функцією, розподільчі коробки, живлення шаф', function () {
+    var used = {}; SK.wiring.links.forEach(function (l) { if (l.inst) used[l.inst.model] = 1; });
+    ['Atom Krypton + R12', 'Atom Ferrum + R12', 'Atom Helium + R12', 'Atom Hydrogen', 'Atom Argon', 'Atom Cobalt', 'Atom Carbon + R12'].forEach(function (m) { if (!used[m]) throw new Error('не використано ' + m); });
+    if (!B.rooms.every(function (r) { return SK.wiring.jbox(r.id); })) throw new Error('немає РК');
+    var blinds = SK.devicesI3.devices.filter(function (d) { return d.kind === 'blinds'; })[0];
+    if (blinds.conn.length !== 2) throw new Error('жалюзі мають 2 реле');
+    return SK.wiring.feeds.length + ' живлень шаф, ' + Object.keys(used).length + ' моделей';
+  });
+  t('Модель кімнати: відкривається для кожного типу приміщення', function () {
+    var types = {}; B.rooms.forEach(function (r) { if (!types[r.type]) types[r.type] = r; });
+    Object.keys(types).forEach(function (k) { SK.RoomView.open(types[k].id); });
+    SK.RoomView.close(); return Object.keys(types).length + ' типів';
+  });
+  t('Несправності: обрив вводу шафи → ДБЖ шафи; несправні АКБ → шафа offline → пристрої offline', function () {
+    st.clock.set(new Date(mon)); SK.faults.resetAll();
+    var cab = 'ЩА-А2', d = SK.devicesI3.devices.filter(function (x) { return x.cabinet === cab && x.kind === 'co2'; })[0];
+    SK.faults.toggleCabFeed(cab);
+    var a = SK.power.cabState(cab, mon), s1 = SK.devices.state(d, mon).status;
+    var later = new Date(mon.getTime() + 361 * 60000), b = SK.power.cabState(cab, later);
+    SK.faults.toggleCabUps(cab); var c = SK.power.cabState(cab, mon), s2 = SK.devices.state(d, mon);
+    SK.faults.resetCab(cab);
+    if (!(a.online && !a.feedOk && a.batt === 100)) throw new Error('ДБЖ шафи не підхопив');
+    if (b.online) throw new Error('батарея не розряджається');
+    if (c.online || s2.status !== 'fault') throw new Error('несправні АКБ не знеструмили шафу');
+    return s1 !== 'fault' ? 'на батареї пристрої працюють; без АКБ — «' + s2.value + '»' : false;
+  });
+  t('Несправності: відмова контролера → порти offline; несправний датчик → порт «fault»; зв’язок — «stale»', function () {
+    SK.faults.resetAll();
+    var inst = SK.wiring.instances('ЩА-А2').filter(function (i) { return i.model === 'Atom Krypton + R12'; })[0], l = inst.ports[0];
+    SK.faults.toggleCtrl(inst); var p1 = SK.faults.portState(l, mon), cs = SK.faults.ctrlState(inst, mon); SK.faults.toggleCtrl(inst);
+    SK.faults.toggleDevice(l.device); var p2 = SK.faults.portState(l, mon); SK.faults.toggleDevice(l.device);
+    SK.faults.toggleCabLink('ЩА-А2'); var p3 = SK.faults.portState(l, mon); SK.faults.resetAll();
+    return p1 === 'off' && cs.status === 'offline' && p2 === 'fault' && p3 === 'stale' && SK.faults.portState(l, mon) === 'ok';
+  });
+  t('Несправності: зчитувач без живлення не пускає навіть адміністратора', function () {
+    SK.faults.resetAll(); st.clock.set(new Date(mon));
+    var door = SK.security.doors.filter(function (x) { return x.zone === 'server'; })[0], rdr = SK.devicesI3.roomDevices(door.room).filter(function (x) { return x.kind === 'finger'; })[0];
+    var adm = SK.security.users().filter(function (u) { return u.group === 'admins' && u.prints; })[0];
+    var ok1 = SK.security.check(adm, door, mon).ok;
+    SK.faults.toggleCabUps(rdr.cabinet); SK.faults.toggleCabFeed(rdr.cabinet);
+    var r2 = SK.security.check(adm, door, mon); SK.faults.resetAll();
+    return ok1 && !r2.ok ? r2.reason : false;
+  });
+  t('Живлення: несправний АВР → ДГУ не підхоплює; паливо 20 % закінчується раніше', function () {
+    SK.store.state.power.faults = {}; st.clock.set(new Date(mon.getTime() + 2 * 3600000));
+    SK.power.toggleFault('ats'); SK.power.startOutage(false);
+    var t0 = st.clock.now(), s = SK.power.state(new Date(t0.getTime() + 5 * 60000));
+    st.clock.set(new Date(t0.getTime() + 6 * 60000)); SK.power.restore(); SK.power.toggleFault('ats');
+    SK.power.toggleFault('fuel'); st.clock.set(new Date(t0.getTime() + 10 * 60000)); SK.power.startOutage(false);
+    var t1 = st.clock.now(), s2 = SK.power.state(new Date(t1.getTime() + 2 * 3600000));
+    st.clock.set(new Date(t1.getTime() + 121 * 60000)); SK.power.restore(); SK.power.toggleFault('fuel');
+    return !s.genOn && s.atsFault && !s2.genOn && s2.fuel === 0 ? 'АВР: ' + s.gen + '; паливо: ' + s2.gen : false;
+  });
+  t('Журнал: усунута несправність лишається в журналі як закрита з позначкою', function () {
+    SK.faults.resetAll(); st.state.role = 'admin';
+    var d = SK.devicesI3.devices.filter(function (x) { return x.kind === 'co2'; })[0];
+    SK.faults.toggleDevice(d); var ev = st.state.events.filter(function (e) { return e.ref === 'dev:' + d.id; })[0];
+    SK.faults.toggleDevice(d);
+    var still = st.state.events.filter(function (e) { return e.id === ev.id; })[0];
+    return still && still.status === 'closed' && still.resolved ? 'подія збережена: «' + still.resolved + '»' : false;
+  });
+  t('Диспетчерська: ручне вимкнення світла гасить приміщення; команда не доходить через знеструмлену шафу', function () {
+    SK.faults.resetAll(); st.state.role = 'admin'; st.clock.set(new Date(mon));
+    var l = S.lessons().filter(function (x) { return x.day === 1 && x.pair === 2; })[0];
+    var light = SK.devicesI3.roomDevices(B.room(l.room)).filter(function (x) { return x.kind === 'light'; })[0];
+    var before = SK.sensors.read(l.room, mon).lightOn, r1 = SK.control.setOff(light, true);
+    var after = SK.sensors.read(l.room, mon).lightOn, ds = SK.devices.state(light, mon).status;
+    SK.control.setOff(light, false);
+    SK.faults.toggleCabUps(light.cabinet); SK.faults.toggleCabFeed(light.cabinet);
+    var r2 = SK.control.setOff(light, true); SK.faults.resetAll();
+    if (!(before && r1.ok && !after && ds === 'off')) throw new Error('вимкнення не спрацювало');
+    return !r2.ok ? r2.result : false;
+  });
+  t('Диспетчерська: відчинити двері на 5 с; відповідальна особа не відчиняє серверну', function () {
+    st.state.role = 'admin'; st.clock.set(new Date(mon));
+    var office = SK.security.doors.filter(function (x) { return x.zone === 'office'; })[0];
+    var server = SK.security.doors.filter(function (x) { return x.zone === 'server'; })[0];
+    var r1 = SK.control.door(office.id, 'pulse'), open1 = SK.security.doorState(office.id);
+    var r0 = SK.control.door(server.id, 'pulse');
+    st.state.role = 'responsible'; var r2 = SK.control.door(server.id, 'pulse', 'тест'); st.state.role = 'admin';
+    return r1.ok && open1 === 'open' && !r0.ok && !r2.ok ? 'без причини: ' + r0.result + '; відп. особа: ' + r2.result : false;
+  });
+  t('3D-переглядач: створення, поверхи, маршрут для кожної аудиторії', function () {
+    var v = new SK.Viewer(document.getElementById('viewer'), { colorFor: function (r) { return SK.colorModes.status.color(r, mon); } });
+    for (var f = 0; f <= 4; f++) v.setFloor(f);
+    v.setWiring(SK.wiring.forCabinet('ЩА-А2').filter(function (l) { return l.inst; }).map(function (l) { return { a: l.device, b: SK.devicesI3.cabinet('ЩА-А2'), color: SK.wiring.BUS[l.type].color }; })); v.setWiring(null);
+    v.setFloor(null);
+    B.rooms.forEach(function (r) { v.route(r.id); });
+    v.select(B.rooms[0].id); v.focusRoom(B.rooms[0].id);
+    v.setDevices(Object.keys(SK.devicesI3.CATS)); v.setFloor(3); v.refresh();
+    v.setFloor(2); v.setPlan(true); v.setFloor(3); v.setPlan(false);
+    v.isolate(B.rooms[10].id); v.isolate(null); v.setExplode(true); v.setLabelsAll(true); v.setExplode(false);
+    v.selectDevice(SK.devicesI3.devices[0]); v.focusDevice(SK.devicesI3.devices[0]); v.setDevices(null);
+    Object.keys(SK.colorModes).forEach(function (k) { SK.colorModes[k].color(B.rooms[5], mon); });
+    return true;
+  });
+  t('Документ .docx з описом комутації формується', function () {
+    var b = SK.wiringDoc.build();
+    if (b[0] !== 0x50 || b[1] !== 0x4b) throw new Error('не ZIP');
+    return Math.round(b.length / 1024) + ' КБ';
+  });
+  t('Графіки малюються', function () {
+    var d = document.createElement('div'); d.style.width = '400px'; document.body.appendChild(d);
+    SK.charts.line(d, [{ name: 'a', cls: 's1', values: [{ x: 0, y: 1 }, { x: 1, y: 3 }] }, { name: 'b', cls: 's2', values: [{ x: 0, y: 2 }, { x: 1, y: 2 }] }], {});
+    SK.charts.bars(d, [{ label: 'Пн', values: [1, 2] }], ['a', 'b'], {});
+    return d.querySelectorAll('path').length > 0;
+  });
+
+  try { localStorage.removeItem('sk9_state_v2'); } catch (e) {}
+  var h = document.createElement('h3'); h.id = 'summary';
+  h.textContent = 'Результат: ' + pass + ' пройдено, ' + fail + ' з помилками';
+  document.body.insertBefore(h, out);
+  document.title = 'SELFTEST ' + pass + '/' + (pass + fail);
+})();
+</script>
+</body>
+</html>

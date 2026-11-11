@@ -1,0 +1,61 @@
+/* Студентський додаток (student.html) — mobile-first. */
+body { overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100%; max-width: 560px; margin: 0 auto; background: var(--bg); border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.s-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--accent); color: var(--accent-fg); }
+.s-top .demo-badge { color: var(--accent-fg); border-color: var(--accent-fg); }
+.s-title { font-weight: 800; font-size: 17px; }
+.s-sub { font-size: 12px; opacity: .85; }
+.s-main { flex: 1; overflow-y: auto; position: relative; }
+.screen { padding: 14px 16px 24px; }
+.s-nav { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--panel); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.s-nav button { background: none; border: none; padding: 7px 2px 8px; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 1px; position: relative; }
+.s-nav button .i { font-size: 19px; line-height: 1.1; }
+.s-nav button.on { color: var(--accent); font-weight: 700; }
+.s-nav .cnt { position: absolute; top: 4px; right: 22%; background: var(--bad); color: #fff; border-radius: 999px; font-size: 10px; padding: 0 5px; }
+
+.hello { display: flex; gap: 12px; align-items: center; }
+.mascot { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); display: grid; place-items: center; font-size: 30px; flex: none; overflow: hidden; }
+.mascot img { width: 100%; height: 100%; object-fit: cover; }
+.bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 13px; }
+.lesson-big { border-left: 4px solid var(--accent); }
+.lesson-big .room { font-size: 28px; font-weight: 800; }
+.lesson-big .when { color: var(--fg-2); font-size: 13px; }
+.mini { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; margin-top: 6px; }
+.progress { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin-top: 8px; }
+.progress i { display: block; height: 100%; background: var(--accent); }
+
+.days { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; }
+.days button { flex: none; }
+.lrow { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.lrow .tm { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--fg-2); }
+.lrow .tm b { display: block; font-size: 15px; color: var(--fg); }
+.lrow.now { background: var(--accent-soft); margin: 0 -16px; padding: 10px 16px; }
+.lrow .subj { font-weight: 600; }
+.chip { display: inline-block; font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--panel); }
+.chip.link { color: var(--accent); border-color: var(--accent); cursor: pointer; }
+
+.frow { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.frow .top { display: flex; align-items: center; gap: 8px; }
+.frow .id { font-weight: 800; font-size: 16px; }
+.frow form { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+
+.modal { position: fixed; inset: 0; background: rgba(10, 20, 30, .45); display: grid; place-items: center; z-index: 80; padding: 16px; }
+.modal .card { width: min(380px, 100%); }
+.modal select { width: 100%; padding: 8px; }
+
+/* Розклад подій і пошук аудиторій */
+.ev { display: flex; gap: 12px; align-items: flex-start; }
+.ev-date { flex: none; width: 46px; text-align: center; background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 4px 0; font-size: 11px; font-weight: 600; }
+.ev-date b { display: block; font-size: 20px; line-height: 1.1; }
+.ev .subj { font-weight: 700; margin: 2px 0; }
+.lesson-big a.room { font-size: 28px; font-weight: 800; text-decoration: none; }
+.frow a.id { text-decoration: none; }
+.pairs { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13px; }
+
+/* Чорна тема */
+.s-top .theme-btn { background: transparent; color: inherit; border-color: currentColor; width: 30px; height: 28px; padding: 0; margin-left: 8px; }
+:root[data-theme="dark"] .s-top { background: var(--panel); color: var(--fg); border-bottom: 1px solid var(--line); }
+:root[data-theme="dark"] .s-top .demo-badge { color: var(--demo); border-color: var(--demo); }
+:root[data-theme="dark"] .modal { background: rgba(0, 0, 0, .7); }
+.s-top .back-btn { background: transparent; color: inherit; border-color: currentColor; margin-right: 6px; }

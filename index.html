@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Розумний корпус · К9 ЧНУ — адміністрування</title>
+<link rel="stylesheet" href="css/base.css">
+<script src="js/core/theme.js"></script>
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">К9</div>
+    <div>
+      <div class="title">Розумний корпус <span class="muted">· адміністрування</span></div>
+      <div class="sub">Корпус № 9 ЧНУ · навчальний прототип команди «Ша-Пі-То», не офіційна система</div>
+    </div>
+  </div>
+  <div class="clock" title="Симульований час — використовується для демонстрації">
+    <span id="clockDay"></span> <b id="clockTime">--:--</b>
+    <span id="clockPair" class="muted small"></span>
+    <select id="clockSpeed" title="Швидкість часу">
+      <option value="1">×1</option><option value="10">×10</option><option value="60">×60</option><option value="300">×300</option>
+    </select>
+    <button class="btn small" id="clockSet" title="Змінити симульований час">🕒</button>
+  </div>
+  <div class="row top-right">
+    <button class="btn small theme-btn" data-theme-toggle aria-label="Перемкнути тему">☾</button>
+    <span class="demo-badge" title="Показники згенеровані симулятором, не отримані від реальних систем">демо</span>
+    <select id="role" title="Роль користувача">
+        <option value="guest">Гість / глядач</option>
+        <option value="responsible">Відповідальна особа</option>
+        <option value="admin">Адміністратор</option>
+    </select>
+    <button class="btn small" id="tourBtn" title="Покроковий демо-сценарій для захисту">▶ Тур</button>
+    <a class="btn small" href="student.html" title="Студентський застосунок (повернення — кнопка «← Панель»)">Студентам →</a>
+  </div>
+</header>
+
+<div class="clock-pop card" id="clockPop" hidden>
+  <div class="row">
+    <label>День <select id="cpDay"></select></label>
+    <label>Час <input type="time" id="cpTime" value="09:55"></label>
+    <button class="btn primary small" id="cpApply">Застосувати</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <span class="small muted">Швидко:</span>
+    <button class="btn small" data-quick="1,08:30">Пн 08:30</button>
+    <button class="btn small" data-quick="1,09:55">Пн 09:55</button>
+    <button class="btn small" data-quick="3,11:15">Ср перерва</button>
+    <button class="btn small" data-quick="2,19:30">Вт вечір</button>
+    <button class="btn small" data-quick="real">Реальний час</button>
+  </div>
+</div>
+
+<main class="layout">
+  <section class="viewer" id="viewer" aria-label="3D-карта корпусу">
+    <div class="v-toolbar">
+      <input type="text" id="mapSearch" class="map-search" placeholder="🔍 Знайти: А-305" autocomplete="off" title="Знайти приміщення на карті (Enter)">
+      <select id="colorMode" title="Що показувати кольором"></select>
+      <button class="btn small" id="devBtn" title="Показати розумні пристрої на плані">📡 Пристрої</button>
+      <label class="btn small" id="modelBtn" title="Завантажити готову 3D-модель корпусу (.glb)">⬆ Модель корпусу<input type="file" id="modelFile" accept=".glb,.gltf" hidden></label>
+    </div>
+    <!-- Ліва панель: «ліфт» поверхів + режими перегляду -->
+    <div class="v-side">
+      <div class="v-floors" id="floors" role="group" aria-label="Поверх"></div>
+      <div class="v-views">
+        <button class="vbtn" id="planBtn" title="План поверху — вигляд згори">▦<span>План</span></button>
+        <button class="vbtn" id="explBtn" title="Розвести поверхи по висоті">☰<span>Поверхи</span></button>
+        <button class="vbtn" id="lblBtn" title="Підписи всіх приміщень">Aa<span>Підписи</span></button>
+        <button class="vbtn" id="homeBtn" title="Типовий вигляд">⌂<span>Огляд</span></button>
+      </div>
+    </div>
+    <div class="v-devpop card" id="devPop" hidden></div>
+    <div class="v-legend card" id="legend"></div>
+    <div class="v-room card" id="roomCard" hidden></div>
+    <div class="v-hint small muted">Клік — вибір · подвійний клік — модель кімнати</div>
+  </section>
+
+  <aside class="panel">
+    <nav class="groups" id="tabGroups" aria-label="Розділи"></nav>
+    <nav class="tabs" id="tabs" role="tablist">
+      <button data-tab="overview" class="on">Огляд</button>
+      <button data-tab="control">Диспетчерська</button>
+      <button data-tab="rooms">Аудиторії</button>
+      <button data-tab="events">Події</button>
+      <button data-tab="scenarios">Сценарії</button>
+      <button data-tab="comfort">Комфорт</button>
+      <button data-tab="security">Безпека <span class="cnt" id="secCnt" hidden></span></button>
+      <button data-tab="access">Доступ</button>
+      <button data-tab="energy">Енергія</button>
+      <button data-tab="power">Живлення</button>
+      <button data-tab="wiring">Комутація</button>
+      <button data-tab="territory">Територія</button>
+      <button data-tab="equipment">Обладнання i3</button>
+      <button data-tab="settings">Налаштування</button>
+    </nav>
+    <div class="panel-body" id="panel"></div>
+  </aside>
+</main>
+
+<div class="tour card" id="tour" hidden>
+  <div class="row"><b id="tourStep"></b><span class="grow"></span><button class="btn small" id="tourClose" aria-label="Закрити">✕</button></div>
+  <p id="tourText"></p>
+  <div class="row"><button class="btn small" id="tourPrev">← Назад</button><span class="grow"></span><button class="btn primary small" id="tourNext">Далі →</button></div>
+</div>
+
+<script src="vendor/three/three.min.js"></script>
+<script src="vendor/three/OrbitControls.js"></script>
+<script src="vendor/three/GLTFLoader.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/data/building.js"></script>
+<script src="js/data/schedule-data.js"></script>
+<script src="js/data/territory.js"></script>
+<script src="js/data/devices-i3.js"></script>
+<script src="js/core/uni-events.js"></script>
+<script src="js/core/schedule.js"></script>
+<script src="js/core/scenarios.js"></script>
+<script src="js/core/power.js"></script>
+<script src="js/core/sensors.js"></script>
+<script src="js/core/i3-adapter.js"></script>
+<script src="js/core/energy.js"></script>
+<script src="js/core/security.js"></script>
+<script src="js/core/devices.js"></script>
+<script src="js/core/wiring.js"></script>
+<script src="js/core/faults.js"></script>
+<script src="js/core/control.js"></script>
+<script src="js/viewer/viewer3d.js"></script>
+<script src="js/viewer/room-viewer.js"></script>
+<script src="js/ui/charts.js"></script>
+<script src="js/ui/colormodes.js"></script>
+<script src="js/ui/dashboard.js"></script>
+<script src="js/ui/admin-tabs.js"></script>
+<script src="js/tools/docx.js"></script>
+<script src="js/tools/wiring-doc.js"></script>
+<script src="js/ui/demo-tour.js"></script>
+</body>
+</html>

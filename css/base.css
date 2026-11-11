@@ -1,0 +1,127 @@
+/* Розумний корпус К9 — спільні стилі (панель і студентський додаток). */
+:root {
+  --bg: #eef2f4; --panel: #ffffff; --panel-2: #f6f8f9; --fg: #1b2830; --fg-2: #4b5b66; --muted: #7a8a94;
+  --line: #d5dde2; --accent: #1f6fb2; --accent-fg: #ffffff; --accent-soft: #e3effa;
+  --free: #2e9e5b; --busy: #d64545; --booked: #3b7dd8; --na: #b9c2c8;
+  --good: #2e9e5b; --warn: #d99a1e; --bad: #d64545; --info: #3b7dd8;
+  --s1: #1f6fb2; --s2: #8a97a1;
+  --demo: #8a4fd0;
+  --radius: 10px; --shadow: 0 1px 2px rgba(20, 40, 50, .06), 0 4px 14px rgba(20, 40, 50, .06);
+  --viewer-bg: linear-gradient(180deg, #e6eef3 0%, #f3f6f8 60%, #eef2ef 100%);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --bg: #050607; --panel: #0e1113; --panel-2: #161a1d; --fg: #e6ebee; --fg-2: #b4bec5; --muted: #7c878e;
+  --line: #252b30; --accent: #4d9be0; --accent-fg: #050607; --accent-soft: #10243a;
+  --free: #4cb877; --busy: #e46a6a; --booked: #5b93e0; --na: #4a5359;
+  --good: #4cb877; --warn: #e2ad3d; --bad: #e46a6a; --info: #5b93e0;
+  --s1: #4d9be0; --s2: #6f7b84; --demo: #b48be8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 4px 16px rgba(0, 0, 0, .5);
+  --viewer-bg: linear-gradient(180deg, #0b0f12 0%, #07090b 60%, #050607 100%);
+  color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  /* Чорна тема: майже чорне тло, панелі на півтону світліші, приглушені акценти */
+  --bg: #050607; --panel: #0e1113; --panel-2: #161a1d; --fg: #e6ebee; --fg-2: #b4bec5; --muted: #7c878e;
+  --line: #252b30; --accent: #4d9be0; --accent-fg: #050607; --accent-soft: #10243a;
+  --free: #4cb877; --busy: #e46a6a; --booked: #5b93e0; --na: #4a5359;
+  --good: #4cb877; --warn: #e2ad3d; --bad: #e46a6a; --info: #5b93e0;
+  --s1: #4d9be0; --s2: #6f7b84; --demo: #b48be8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 4px 16px rgba(0, 0, 0, .5);
+  --viewer-bg: linear-gradient(180deg, #0b0f12 0%, #07090b 60%, #050607 100%);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 "Segoe UI", Roboto, Arial, sans-serif; }
+[hidden] { display: none !important; }
+h1, h2, h3 { margin: 0; line-height: 1.25; }
+h2 { font-size: 17px; } h3 { font-size: 14px; margin: 14px 0 8px; color: var(--fg-2); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
+a { color: var(--accent); }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 12px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.danger { border-color: var(--bad); color: var(--bad); }
+.btn.small { padding: 3px 8px; font-size: 12px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+select, input[type=text], input[type=number], input[type=time], input[type=date], textarea {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 8px; max-width: 100%;
+}
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+.card + .card { margin-top: 10px; }
+
+/* Бейдж демонстраційних даних (ТЗ п. 4 — позначати симуляцію) */
+.demo-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--demo);
+  border: 1px dashed var(--demo); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.demo-badge::before { content: "◇"; }
+
+/* Статуси */
+.st { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; white-space: nowrap; }
+.st::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--na); }
+.st.free::before { background: var(--free); } .st.busy::before { background: var(--busy); } .st.booked::before { background: var(--booked); }
+.lvl { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+.lvl::before { font-size: 11px; }
+.lvl.good { color: var(--good); } .lvl.good::before { content: "●"; }
+.lvl.warn { color: var(--warn); } .lvl.warn::before { content: "▲"; }
+.lvl.bad { color: var(--bad); } .lvl.bad::before { content: "■"; }
+.sev { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.sev.critical { color: var(--bad); } .sev.serious { color: #d97a33; } .sev.warning { color: var(--warn); } .sev.info { color: var(--info); }
+
+/* KPI-плитки */
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.kpi { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.kpi .v { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.kpi .l { font-size: 12px; color: var(--fg-2); }
+
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th { text-align: left; font-weight: 600; color: var(--fg-2); font-size: 12px; border-bottom: 1px solid var(--line); padding: 6px; }
+table.t td { border-bottom: 1px solid var(--line); padding: 6px; vertical-align: top; }
+table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: var(--panel-2); }
+.tw { overflow-x: auto; }
+
+/* 3D-переглядач */
+.viewer { position: relative; overflow: hidden; background: var(--viewer-bg); }
+.viewer-canvas { display: block; touch-action: none; }
+.viewer-tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 9px; font-size: 12px; box-shadow: var(--shadow); max-width: 240px; z-index: 5; }
+
+/* Графіки */
+.chart { position: relative; }
+.chart svg { display: block; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .series.s1 { stroke: var(--s1); } .chart .series.s2 { stroke: var(--s2); }
+.chart .series.dashed { stroke-dasharray: 6 4; }
+.chart .threshold { stroke: var(--bad); stroke-dasharray: 3 3; }
+.chart .cross { stroke: var(--muted); stroke-width: 1; }
+.chart .dot { stroke: var(--panel); stroke-width: 2; } .chart .dot.s1 { fill: var(--s1); } .chart .dot.s2 { fill: var(--s2); }
+.chart .bar.s1 { fill: var(--s1); } .chart .bar.s2 { fill: var(--s2); } .chart .bar.partial { opacity: .55; }
+.chart-tip { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px;
+  font-size: 12px; box-shadow: var(--shadow); pointer-events: none; min-width: 150px; z-index: 3; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--fg-2); margin-top: 4px; }
+.sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; background: var(--s1); }
+.sw.s2 { background: var(--s2); } .sw.dashed { background: repeating-linear-gradient(90deg, var(--s2) 0 4px, transparent 4px 7px); }
+
+/* Сповіщення-тости */
+#toasts { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px;
+  box-shadow: var(--shadow); max-width: 340px; transition: opacity .5s, transform .5s; }
+.toast.bad { border-left-color: var(--bad); } .toast.warn { border-left-color: var(--warn); } .toast.good { border-left-color: var(--good); }
+.toast.out { opacity: 0; transform: translateY(8px); }
+
+.legend-map { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.legend-map .k { display: inline-flex; align-items: center; gap: 5px; }
+.legend-map .k i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.gradient { height: 8px; border-radius: 4px; width: 140px; }
+.lvl.off { color: var(--muted); } .lvl.off::before { background: var(--muted); }

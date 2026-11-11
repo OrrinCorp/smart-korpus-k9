@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><title>Експорт опису комутації</title>
+<script src="../js/core/theme.js"></script></head>
+<body>
+<p>Генерація документа «Опис елементів і комутації» (.docx) з даних прототипу.</p>
+<button id="go">Завантажити .docx</button>
+<pre id="b64" hidden></pre>
+<script src="../js/core/util.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/data/building.js"></script>
+<script src="../js/data/schedule-data.js"></script>
+<script src="../js/data/territory.js"></script>
+<script src="../js/data/devices-i3.js"></script>
+<script src="../js/core/uni-events.js"></script>
+<script src="../js/core/schedule.js"></script>
+<script src="../js/core/scenarios.js"></script>
+<script src="../js/core/power.js"></script>
+<script src="../js/core/sensors.js"></script>
+<script src="../js/core/i3-adapter.js"></script>
+<script src="../js/core/security.js"></script>
+<script src="../js/core/devices.js"></script>
+<script src="../js/core/wiring.js"></script>
+<script src="../js/core/faults.js"></script>
+<script src="../js/core/control.js"></script>
+<script src="../js/tools/docx.js"></script>
+<script src="../js/tools/wiring-doc.js"></script>
+<script>
+  document.getElementById('go').onclick = SK.wiringDoc.download;
+  /* tools/export-docx.html#b64 — вивести файл як base64 (для автоматичної збірки) */
+  if (location.hash === '#b64') {
+    var b = SK.wiringDoc.build(), s = '';
+    for (var i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    var el = document.getElementById('b64'); el.textContent = btoa(s); el.hidden = false;
+  }
+</script>
+</body></html>

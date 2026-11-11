@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6fb2">
+<title>К9 Студент</title>
+<link rel="stylesheet" href="css/base.css">
+<script src="js/core/theme.js"></script>
+<link rel="stylesheet" href="css/student.css">
+</head>
+<body>
+<div class="app">
+  <header class="s-top">
+    <div>
+      <div class="s-title">К9 · Студент</div>
+      <div class="s-sub"><span id="sClock">--:--</span> · <span id="sGroupLbl">група не обрана</span></div>
+    </div>
+    <div class="row"><button class="btn small back-btn" id="backBtn" title="Повернутися до панелі адміністрування">← Панель</button><span class="demo-badge">демо</span><button class="btn small theme-btn" data-theme-toggle aria-label="Перемкнути тему">☾</button></div>
+  </header>
+
+  <main class="s-main">
+    <section data-screen="home" class="screen"></section>
+    <section data-screen="week" class="screen" hidden></section>
+    <section data-screen="events" class="screen" hidden></section>
+    <section data-screen="rooms" class="screen" hidden></section>
+    <section data-screen="news" class="screen" hidden></section>
+  </main>
+
+  <nav class="s-nav" id="sNav">
+    <button data-go="home" class="on"><span class="i">⌂</span>Сьогодні</button>
+    <button data-go="week"><span class="i">▦</span>Розклад</button>
+    <button data-go="events"><span class="i">★</span>Події</button>
+    <button data-go="rooms"><span class="i">⌕</span>Аудиторії</button>
+    <button data-go="news"><span class="i">✉</span>Новини<span class="cnt" id="newsCnt" hidden></span></button>
+  </nav>
+</div>
+
+<div class="modal" id="groupModal" hidden>
+  <div class="card">
+    <h2>Оберіть свою групу</h2>
+    <p class="muted small">Групи демонстраційні. Вибір зберігається лише на цьому пристрої.</p>
+    <select id="groupSel"></select>
+    <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" id="groupOk">Готово</button></div>
+  </div>
+</div>
+
+<!-- Студентський застосунок навмисно обмежений: лише розклад, події, пошук аудиторій
+     та оголошення. Карти з датчиками, керування й безпека — тільки в index.html. -->
+<script src="js/core/util.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/data/building.js"></script>
+<script src="js/data/schedule-data.js"></script>
+<script src="js/core/uni-events.js"></script>
+<script src="js/core/schedule.js"></script>
+<script src="js/student/app.js"></script>
+</body>
+</html>
