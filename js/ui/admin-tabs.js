@@ -527,7 +527,7 @@ SK.adminTabs = (function () {
 
   function focusCard() {
     var f = st.focus; if (!f) return '<div class="note">Натисніть порт у схемі шафи, рядок таблиці чи маркер на карті — на плані залишиться лише цей елемент, його приміщення і траса кабелю. ' +
-      'Картка пристрою відкриється поверх карти — там стан, підключення, кнопка ⏻ та імітація несправностей.</div>';
+      'Картка пристрою відкриється поверх карти — там стан, підключення, кнопка ручного вимкнення та імітація несправностей.</div>';
     var n = D().now(), h = '<div class="card focus-card" id="wFocus"><div class="row"><b class="grow">Виділено</b><button class="btn small" data-wf="clear">✕ Показати все</button></div>';
     if (f.type === 'dev') {     // подробиці — у єдиній плаваючій картці пристрою на карті
       var d = DEV.device(f.id), s = DS.state(d, n), inst0 = d.conn[0] && d.conn[0].inst;

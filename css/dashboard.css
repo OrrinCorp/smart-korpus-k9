@@ -55,7 +55,8 @@ body { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
 @media (max-width: 1000px) {
   body { height: auto; overflow: auto; }
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .viewer, .panel { min-width: 0; }
   .viewer { height: 62vh; }
   .panel { border-left: none; border-top: 1px solid var(--line); }
   .v-room { width: auto; left: 12px; top: auto; bottom: 64px; max-height: 50%; }
@@ -214,3 +215,74 @@ details.inst.offline { border-color: var(--bad); } details.inst.warn { border-co
 .dc-port .grow { min-width: 0; }
 .v-room .rc-h .pwr { margin-top: 2px; }
 .focus-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border: 2px solid var(--accent); border-radius: 8px; padding: 6px 8px; margin: 8px 0 10px; background: var(--panel); }
+
+/* ===== Телефон (≤ 640 px): компактна шапка, карта зверху, картка — нижня шторка, меню прокручується ===== */
+@media (max-width: 640px) {
+  .top { gap: 6px 8px; padding: 6px max(12px, env(safe-area-inset-right, 0px)) 6px max(12px, env(safe-area-inset-left, 0px)); }
+  .brand { flex: 1; min-width: 0; gap: 8px; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; font-size: 13px; }
+  .title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title .muted, .sub { display: none; }
+  .clock { order: 3; width: 100%; gap: 6px; font-size: 12px; }
+  .clock b { font-size: 15px; }
+  #clockPair { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-right { order: 2; flex-wrap: nowrap; gap: 4px; }
+  .top-right .demo-badge, #tourBtn { display: none; }
+  #role { max-width: 118px; padding: 4px 6px; font-size: 12px; }
+  .top-right .btn.small { padding: 4px 7px; }
+  .clock-pop { position: fixed; top: 96px; left: 12px; right: 12px; }
+  .clock-pop .row { flex-wrap: wrap; }
+
+  .viewer { height: 58vh; min-height: 340px; }
+  .v-toolbar { top: 8px; left: 8px; right: 8px; gap: 6px; flex-wrap: nowrap; }
+  .map-search { flex: 1; min-width: 0; width: auto; }
+  #colorMode { max-width: 42%; min-width: 0; font-size: 12px; }
+  #modelBtn, .v-hint { display: none !important; }
+  #devBtn { white-space: nowrap; padding: 4px 7px; }
+  .v-side { top: 50px; left: 8px; right: 8px; flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .v-side::-webkit-scrollbar { display: none; }
+  .v-floors { flex-direction: row; flex: none; }
+  .v-floors button { width: 42px; padding: 5px 0 4px; font-size: 14px; border-bottom: none; border-right: 1px solid var(--line); }
+  .v-floors button:last-child { border-right: none; }
+  .v-views { flex-direction: row; flex: none; gap: 4px; }
+  .vbtn { width: 46px; font-size: 14px; padding: 4px 0 3px; }
+  .v-legend { left: 8px; bottom: 8px; right: 64px; max-width: none; padding: 6px 8px; max-height: 76px; overflow-y: auto; font-size: 11px; }
+  .v-compass { right: 10px; bottom: 10px; width: 40px; height: 40px; }
+  .v-devpop { top: 96px; left: 8px; right: 8px; width: auto; max-height: calc(100% - 110px); overflow-y: auto; }
+
+  /* Картка приміщення / пристрою — нижня шторка на всю ширину екрана */
+  .v-room, .v-room.dragging { position: fixed; left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; width: auto;
+    max-height: 72vh; border-radius: 16px 16px 0 0; z-index: 40; box-shadow: 0 -8px 30px rgba(0,0,0,.28); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .v-room .rc-h { cursor: default; padding: 14px 14px 8px; position: relative; }
+  .v-room .rc-h::before { content: ""; position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--line); }
+  .v-room .rc-b { padding: 6px 14px 14px; }
+  .v-room .btn.small { padding: 5px 9px; }
+  .v-room .pwr { width: 32px; height: 32px; }
+
+  .groups { display: flex; overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 8; gap: 2px; }
+  .groups::-webkit-scrollbar { display: none; }
+  .groups button { flex: none; min-width: 62px; }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 4px 6px 0; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: none; padding: 7px 9px; }
+  .panel-body { padding: 10px 12px 32px; overflow: visible; overflow-wrap: anywhere; }
+  .panel-body > h2 { font-size: 18px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  table.t { font-size: 12px; } table.t td, table.t th { padding: 5px 4px; }
+  .panel-body .row { flex-wrap: wrap; }
+  .panel-body svg { max-width: 100%; height: auto; }
+  .tour { bottom: 12px; max-height: 45vh; overflow-y: auto; }
+  .focus-bar .btn { padding: 4px 7px; }
+}
+@media (max-width: 640px) {
+  html, body { max-width: 100%; overflow-x: hidden; }
+  .top { max-width: 100vw; }
+  .v-legend .legend-map { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+}
+@media (max-width: 640px) {
+  .brand .title { display: none; }
+  .groups button { flex: 1 1 0; min-width: 44px; padding: 4px 1px 3px; }
+  .groups button .gl { font-size: 9.5px; }
+}
+.dc-port .grow { flex: 1 1 140px; }

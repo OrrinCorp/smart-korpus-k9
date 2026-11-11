@@ -365,8 +365,15 @@ SK.dashboard = (function () {
   }
   /* Перетягування картки за заголовок; позиція запам'ятовується на сеанс */
   function initCardDrag() {
-    var box = $('#roomCard'), drag = null;
+    var box = $('#roomCard'), drag = null, phone = window.matchMedia('(max-width: 640px)'), swipe = null;
+    /* Телефон: картка — нижня шторка; змах заголовка вниз закриває її */
+    box.addEventListener('pointerdown', function (e) { if (phone.matches && e.target.closest('.rc-h') && !e.target.closest('button')) swipe = e.clientY; });
+    box.addEventListener('pointerup', function (e) {
+      if (swipe != null && e.clientY - swipe > 60) { var c = box.querySelector('[data-act="close"]'); if (c) c.click(); }
+      swipe = null;
+    });
     box.addEventListener('pointerdown', function (e) {
+      if (phone.matches) return;
       if (!e.target.closest('.rc-h') || e.target.closest('button, a, select, input')) return;
       var r = box.getBoundingClientRect(), pr = box.offsetParent.getBoundingClientRect();
       drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, pr: pr }; box.classList.add('dragging'); box.setPointerCapture(e.pointerId);
@@ -834,7 +841,7 @@ SK.dashboard = (function () {
     h += '<div class="dc-state ' + st.lvl + '"><div class="row"><span class="lvl ' + st.lvl + '">' + st.name + '</span><span class="grow"></span><span class="demo-badge">симуляція</span></div>' +
       '<div class="dc-val">' + esc(s.value || '—') + '</div>' +
       (iss && iss.cause !== 'dev' ? '<div class="small">Причина: <b>' + esc(CAUSE[iss.cause] || iss.value) + '</b></div>' : '') +
-      (off ? '<div class="small">Вимкнено з диспетчерської. Натисніть ⏻ угорі, щоб увімкнути.</div>' : '') + '</div>';
+      (off ? '<div class="small">Вимкнено з диспетчерської. Кнопка живлення вгорі картки вмикає знову.</div>' : '') + '</div>';
     if (d.label && d.label !== d.name) h += '<div class="small muted">' + esc(d.name) + '</div>';
 
     /* 2. Дії */
