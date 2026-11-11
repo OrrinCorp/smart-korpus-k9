@@ -508,15 +508,17 @@ SK.adminTabs = (function () {
     if (!cab.territory) D().setFloorBtn(cab.floor);
     V.setFocus({ devices: devs, rooms: Object.keys(rooms), paths: paths, marks: marks, floor: cab.territory ? null : cab.floor });
   }
-  function focusDevice(d) {
+  /* Виділення пристрою: траса на карті + та сама плаваюча картка пристрою, що й при кліку на карті */
+  function focusDevice(d, back) {
     if (!d) return;
     if (d.cabinet && d.cabinet !== st.wCab) st.wCab = d.cabinet;
     st.focus = { type: 'dev', id: d.id };
     D().renderPanel(); applyFocus();
+    D().openDevice(d, back);
     var c = document.getElementById('wFocus'); if (c) c.scrollIntoView({ block: 'nearest' });
   }
   function focusInst(id) { st.focus = { type: 'inst', id: id }; D().renderPanel(); applyFocus(); }
-  function clearFocus() { st.focus = null; D().renderPanel(); D().viewer.setFocus(null); }
+  function clearFocus() { var dev = st.focus && st.focus.type === 'dev'; st.focus = null; D().renderPanel(); D().viewer.setFocus(null); if (dev) D().openDevice(null); }
 
   var PORT_TXT = { ok: 'норма', fault: 'несправність пристрою', alarm: 'тривога', off: 'без живлення / контролер offline', stale: 'немає зв’язку шафи', manual: 'вимкнено вручну' };
   function simBtn(act, label, on, title) {
@@ -525,29 +527,15 @@ SK.adminTabs = (function () {
 
   function focusCard() {
     var f = st.focus; if (!f) return '<div class="note">Натисніть порт у схемі шафи, рядок таблиці чи маркер на карті — на плані залишиться лише цей елемент, його приміщення і траса кабелю. ' +
-      'У картці виділеного елемента є кнопки імітації несправностей і тривог.</div>';
+      'Картка пристрою відкриється поверх карти — там стан, підключення, кнопка ⏻ та імітація несправностей.</div>';
     var n = D().now(), h = '<div class="card focus-card" id="wFocus"><div class="row"><b class="grow">Виділено</b><button class="btn small" data-wf="clear">✕ Показати все</button></div>';
-    if (f.type === 'dev') {
-      var d = DEV.device(f.id), s = DS.state(d, n), jb = d.room ? W.jbox(d.room) : null, iss = FL.deviceIssue(d, n);
-      h += '<div style="font-size:16px;font-weight:700;margin-top:4px">' + DEV.KINDS[d.kind].icon + ' ' + esc(d.label || d.name) + '</div>' +
-        '<div class="small muted">' + esc(d.name) + ' · ' + esc(d.room ? d.room + ' · ' + B.room(d.room).name : d.zone || 'коридор') + '</div>' +
-        '<div class="small">' + esc(s.value || '') + ' · <span class="lvl ' + DS.STATUS[s.status].lvl + '">' + DS.STATUS[s.status].name + '</span></div>';
-      if (iss) h += '<div class="small" style="color:var(--bad);margin-top:2px">Причина: ' + esc({ cab: 'шафа без живлення', ctrl: 'відмова контролера', dev: 'несправність пристрою', link: 'обрив зв’язку шафи' }[iss.cause]) + '</div>';
-      h += '<div class="route">' + [DEV.KINDS[d.kind].icon + ' пристрій', jb ? '📦 ' + jb.id + ' (біля дверей)' : null, jb ? '〰 лоток коридору' : null, '⚡ ' + d.cabinet]
-        .filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>→</i>') + '</div>';
-      h += '<table class="t"><tbody>' + d.conn.map(function (l) {
-        var ps = FL.portState(l, n);
-        return '<tr><td><span class="cat-dot" style="background:' + W.BUS[l.type].css + '"></span><b>' + esc(l.inst ? l.inst.short : '—') + '</b> · ' + esc(l.port) +
-          '<div class="small muted">' + esc(l.inst ? l.inst.model : W.BUS[l.type].name) + '</div></td><td class="small">' + esc(W.BUS[l.type].name) + '<br>' + esc(l.cable) + (l.len ? ' · ≈ ' + l.len + ' м' : '') + '</td>' +
-          '<td class="small"><span class="pdot p-' + ps + '"></span>' + PORT_TXT[ps] + '</td></tr>';
-      }).join('') + '</tbody></table><div class="small muted"><code>' + esc(d.topic) + '</code></div>';
-      if (CT.controllable(d)) h += '<div class="sim-row"><b class="small">Керування:</b>' + pwrBtn(d, n) + '<span class="small muted">' + (CT.isOff(d) ? CT.offLabel(d) + ' — натисніть, щоб увімкнути' : 'ручне вимкнення (команда через ' + esc(d.cabinet) + ')') + '</span></div>';
-      var tr = FL.TRIGGERS[d.kind], devFault = !!(SK.store.state.faults || {})[d.id];
-      h += '<div class="sim-row"><b class="small">Імітація:</b>' + simBtn('dev', devFault ? 'Пристрій несправний' : 'Несправність пристрою', devFault) +
-        (tr ? simBtn('trig', tr.label, false, 'Згенерувати подію безпеки від цього пристрою') : '') +
-        (d.conn[0] && d.conn[0].inst ? simBtn('ctrl:' + d.conn[0].inst.id, 'Відмова ' + d.conn[0].inst.short, FL.ctrlDown(d.conn[0].inst.id)) : '') + '</div>';
-      h += '<div class="row" style="margin-top:6px">' + (d.room ? '<button class="btn small" data-wf="room">🔍 Модель кімнати ' + esc(d.room) + '</button>' : '') +
-        (d.conn[0] && d.conn[0].inst ? '<button class="btn small" data-wf="inst" data-inst="' + esc(d.conn[0].inst.id) + '">Усі лінії ' + esc(d.conn[0].inst.short) + '</button>' : '') + '</div>';
+    if (f.type === 'dev') {     // подробиці — у єдиній плаваючій картці пристрою на карті
+      var d = DEV.device(f.id), s = DS.state(d, n), inst0 = d.conn[0] && d.conn[0].inst;
+      return '<div class="focus-bar" id="wFocus"><span class="small muted">Виділено</span><b>' + DEV.KINDS[d.kind].icon + ' ' + esc(d.label || d.name) + '</b>' +
+        '<span class="lvl ' + DS.STATUS[s.status].lvl + ' small">' + DS.STATUS[s.status].name + '</span><span class="grow"></span>' +
+        '<button class="btn small" data-wf="card" title="Відкрити картку пристрою">Картка</button>' +
+        (inst0 ? '<button class="btn small" data-wf="inst" data-inst="' + esc(inst0.id) + '" title="Усі лінії цього контролера">Усі лінії ' + esc(inst0.short) + '</button>' : '') +
+        '<button class="btn small" data-wf="clear">✕ Показати все</button></div>';
     } else {
       var i = W.instances(st.wCab).filter(function (x) { return x.id === f.id; })[0], rooms = {}, cs = FL.ctrlState(i, n);
       i.ports.forEach(function (l) { if (l.device.room) rooms[l.device.room] = 1; });
@@ -652,6 +640,8 @@ SK.adminTabs = (function () {
         if (b.id === 'wHide') { st.focus = null; D().viewer.setFocus(null); D().viewer.setWiring(null); D().setDevCats(null); D().renderPanel(); }
         if (b.id === 'wDoc') { SK.wiringDoc.download(); U.toast('Документ сформовано', 'good'); }
         if (b.dataset.wf === 'clear') clearFocus();
+        if (b.dataset.wf === 'card' && st.focus) D().openDevice(DEV.device(st.focus.id));
+        if (b.dataset.wf === 'card' && st.focus) D().openDevice(DEV.device(st.focus.id));
         if (b.dataset.wf === 'inst') focusInst(b.dataset.inst);
         if (b.dataset.wf === 'room') SK.RoomView.open(DEV.device(st.focus.id).room);
         return;
@@ -759,5 +749,7 @@ SK.adminTabs = (function () {
   }
 
   return { events: events, scenarios: scenarios, access: access, power: power, wiring: wiring, control: control, setCtlRoom: setCtlRoom, toastCmd: toastCmd, focusDevice: focusDevice, focusInst: focusInst,
+    PORT_TXT: PORT_TXT, devFocused: function () { return !!(st.focus && st.focus.type === 'dev'); },
+    refocus: function () { if (st.focus) applyFocus(); },
     clearFocus: function () { st.focus = null; } };
 })();

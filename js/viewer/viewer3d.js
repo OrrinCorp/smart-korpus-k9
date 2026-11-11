@@ -431,7 +431,8 @@ SK.Viewer = function (container, opts) {
   var lastHover = null;
   renderer.domElement.addEventListener('dblclick', function (e) {
     var id = pickAt(e);
-    if (id && !id.device && opts.onOpenRoom) opts.onOpenRoom(B.room(id));
+    if (id && id.device) { if (opts.onOpenDevice) opts.onOpenDevice(id.device); return; }
+    if (id && opts.onOpenRoom) opts.onOpenRoom(B.room(id));
   });
   renderer.domElement.addEventListener('pointerup', function (e) {
     if (!downAt || Math.abs(e.clientX - downAt.x) + Math.abs(e.clientY - downAt.y) > 6) return;

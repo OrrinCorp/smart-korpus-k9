@@ -192,3 +192,25 @@ details.inst.offline { border-color: var(--bad); } details.inst.warn { border-co
 .v-room.dragging { opacity: .92; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
 .pwr .ico-pwr, .btn .ico-pwr { vertical-align: -2px; } .pwr.sm .ico-pwr { width: 11px; height: 11px; }
 .v-room .rc-mode select { flex: 1; min-width: 0; padding: 3px 6px; font-size: 12px; } .v-room .rc-mode select#rcDur { flex: none; width: 100px; } .v-room .pairs { font-size: 12px; } .v-room .row { gap: 5px; }
+
+/* Єдина картка пристрою / приміщення: стан → дії → розділи, що розгортаються */
+.v-room { width: 300px; }
+.v-room details { border-top: 1px solid var(--line); margin-top: 6px; }
+.v-room details > summary { list-style: none; display: flex; align-items: center; gap: 6px; padding-top: 6px; margin: 0 0 4px; }
+.v-room details > summary::-webkit-details-marker { display: none; }
+.v-room details > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+.v-room details[open] > summary::before { transform: rotate(90deg); }
+.v-room .dc-sec { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-2); margin: 8px 0 3px; border-top: 1px solid var(--line); padding-top: 6px; }
+.dc-cat { font-size: 11px; font-weight: 700; color: var(--fg-2); letter-spacing: .02em; }
+.dc-cat .cat-dot { width: 8px; height: 8px; }
+.dc-acts { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 2px; }
+.dc-state { border-left: 3px solid var(--good); background: var(--panel-2); border-radius: 6px; padding: 6px 8px; margin: 6px 0 2px; font-size: 12px; }
+.dc-state.warn { border-left-color: var(--warn); } .dc-state.bad { border-left-color: var(--bad); } .dc-state.off { border-left-color: var(--muted); }
+.dc-state .dc-val { font-size: 15px; font-weight: 700; margin: 2px 0; overflow-wrap: anywhere; }
+.dc-route { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 2px 0 6px; font-size: 11px; }
+.dc-route span { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 7px; font-weight: 600; }
+.dc-route i { color: var(--muted); font-style: normal; }
+.dc-port { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; padding: 2px 0; }
+.dc-port .grow { min-width: 0; }
+.v-room .rc-h .pwr { margin-top: 2px; }
+.focus-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border: 2px solid var(--accent); border-radius: 8px; padding: 6px 8px; margin: 8px 0 10px; background: var(--panel); }

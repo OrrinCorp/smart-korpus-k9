@@ -23,11 +23,14 @@ SK.dashboard = (function () {
       deviceTip: function (d) {
         var s = DS.state(d, now());
         return DEV.KINDS[d.kind].icon + ' <b>' + esc(d.name) + '</b><br>' + esc(d.room || d.label || '') + (s.value ? ' · ' + esc(s.value) : '') +
-          '<br><span class="lvl ' + DS.STATUS[s.status].lvl + '">' + DS.STATUS[s.status].name + '</span>';
+          '<br><span class="lvl ' + DS.STATUS[s.status].lvl + '">' + DS.STATUS[s.status].name + '</span><br><span class="muted">клік — картка · подвійний клік — наблизити</span>';
       },
       onDeviceSelect: function (d) {
-        if (d && ui.tab === 'wiring' && role() === 'admin') { SK.adminTabs.focusDevice(d); return; }   // у «Комутації» — виділити трасу
-        ui.device = d ? d.id : null; if (d) { ui.room = null; viewer.select(null); } renderRoomCard(); },
+        var back = ui.pendingBack; ui.pendingBack = null;
+        if (d && ui.tab === 'wiring' && role() === 'admin') { SK.adminTabs.focusDevice(d, back); return; }   // у «Комутації» — ще й траса
+        if (!d && ui.tab === 'wiring' && SK.adminTabs.devFocused()) { SK.adminTabs.clearFocus(); viewer.setFocus(null); ui.device = null; renderPanel(); }
+        openDevice(d, back); },
+      onOpenDevice: function (d) { ui.pendingBack = ui.devBack; showDevice(d); },   // подвійний клік по іконці
       spotColor: function (s) { return DS.spotTaken(s, now()) ? 0xd96b6b : s.mgn ? 0x8fb8e8 : 0x8fd19e; },
       onOpenRoom: function (r) { if (role() === 'guest') { U.toast('Модель кімнати доступна відповідальним особам і адміністратору', 'warn'); return; } SK.RoomView.open(r.id); },
       defaultModelUrl: 'assets/models/korpus9.glb'
@@ -298,7 +301,7 @@ SK.dashboard = (function () {
     }
     if (r.bookable && !G) {
       var SCN = SK.scenarios;
-      h += '<div class="small" style="margin:6px 0 2px">Сценарій: <b>' + esc(v.scName) + '</b>' +
+      h += '<div class="dc-sec">Режим кімнати</div><div class="small" style="margin:0 0 2px">Зараз: <b>' + esc(v.scName) + '</b>' +
         (v.manual ? ' · вручну' + (v.manual.until ? ' до ' + U.hhmm(new Date(v.manual.until)) : '') : ' · за правилом') + '</div>';
       if (SEC.can('scenario')) {
         h += '<div class="row rc-mode">' + sel('rcMode', [['auto', 'Авто (за правилами)']].concat(SCN.list().map(function (s) { return [s.id, s.name]; })), v.mode) +
@@ -325,15 +328,17 @@ SK.dashboard = (function () {
         (s.status === 'alarm' || s.status === 'fault' || s.status === 'off' ? '<span class="lvl ' + DS.STATUS[s.status].lvl + '">' + DS.STATUS[s.status].name + '</span>' : '<span class="muted">' + esc(String(s.value).slice(0, 18)) + '</span>') + '</div>';
     }).join('') +
       (cab ? '<div class="muted">Шафа ' + esc(cab.id) + ' · ' + cab.controllers.length + ' контролерів (вкладка «Комутація»)</div>' : '') + '</div></details>';
-    h += '<div class="row" style="margin-top:10px">' + (role() !== 'guest' ? '<button class="btn small primary" data-act="model">🔍 Модель кімнати</button>' : '') +
-      '<button class="btn small' + (viewer.getIsolated() === r.id ? ' on' : '') + '" data-act="iso">' + (viewer.getIsolated() === r.id ? 'Скасувати виділення' : '◎ Виділити') + '</button>' +
-      '<button class="btn small" data-act="focus">Наблизити</button><button class="btn small" data-act="route">Маршрут</button></div>';
+    /* Дії — одразу під заголовком, однаковий вигляд з карткою пристрою */
+    var HEND = 'aria-label="Закрити">✕</button></div>', iso = viewer.getIsolated() === r.id;
+    h = h.replace(HEND, HEND + '<div class="row dc-acts">' + (role() !== 'guest' ? '<button class="btn small primary" data-act="model" title="Окрема 3D-модель приміщення (або подвійний клік на карті)">🔍 Модель кімнати</button>' : '') +
+      '<button class="btn small' + (iso ? ' on' : '') + '" data-act="iso" title="Показати лише це приміщення">' + (iso ? '✕ Показати все' : '◎ Окремо') + '</button>' +
+      '<button class="btn small" data-act="focus" title="Наблизити камеру">⌖ Наблизити</button><button class="btn small" data-act="route" title="Як дійти від входу">➜ Маршрут</button></div>');
     box.innerHTML = cardHtml(h); box.hidden = false;
     box.onclick = function (e) {
       var pw = e.target.closest('[data-pwr]');
       if (pw) { SK.adminTabs.toastCmd(SK.control.toggle(DEV.device(pw.dataset.pwr))); return; }
       var dl = e.target.closest('[data-dev]');
-      if (dl) { e.preventDefault(); showDevice(DEV.device(dl.dataset.dev)); return; }
+      if (dl) { e.preventDefault(); ui.pendingBack = r.id; showDevice(DEV.device(dl.dataset.dev)); return; }
       var b = e.target.closest('button'); if (!b || b.disabled) return;
       if (b.dataset.act === 'close') { viewer.select(null); viewer.clearRoute(); if (viewer.getIsolated()) { viewer.isolate(null); setFloorBtn(''); viewer.setFloor(null); } }
       if (b.dataset.act === 'focus') viewer.focusRoom(r.id);
@@ -768,7 +773,7 @@ SK.dashboard = (function () {
             DEV.CATS[c].name + '<span class="n">' + (t.cats[c] || 0) + '</span></label>';
         }).join('') +
         '<div class="row" style="margin-top:6px"><button class="btn small" data-all="1">Усі</button><button class="btn small" data-none="1">Сховати</button></div>' +
-        '<div class="small muted" style="margin-top:6px">Порада: оберіть поверх — так менше маркерів. Червоне кільце — тривога, жовте — несправність, зелена крапка — активний.</div>';
+        '<div class="small muted" style="margin-top:6px">Колір кільця — категорія. Значок «!» — тривога чи несправність, ⏻ — вимкнено вручну. Клік по іконці — картка пристрою, подвійний клік — наблизити. Порада: оберіть поверх — так менше маркерів.</div>';
     }
     btn.onclick = function () { draw(); pop.hidden = !pop.hidden; };
     pop.addEventListener('change', function (e) {
@@ -801,39 +806,94 @@ SK.dashboard = (function () {
     viewer.focusDevice(d);
   }
 
+  /* Єдина картка пристрою: однакова з карти, зі схеми комутації, зі списків і з картки приміщення.
+     Розділи: стан → дії → підключення (адмін) → імітація (адмін, демо) → довідка. */
+  function openDevice(d, back) {
+    ui.device = d ? d.id : null; ui.devBack = d ? back || null : null;
+    if (d && ui.room) { ui.room = null; viewer.select(null); }
+    renderRoomCard();
+  }
+  var CAUSE = { cab: 'шафа автоматики без живлення', ctrl: 'відмова контролера', dev: 'пристрій не відповідає', link: 'обрив зв’язку шафи із серверною' };
+  function simB(act, label, on) {
+    return '<button class="btn small' + (on ? ' danger on' : '') + '" data-dsim="' + act + '">' + (on ? '✕ ' : '') + esc(label) + '</button>';
+  }
   function renderDeviceCard(box) {
-    var d = DEV.device(ui.device), n = now(), s = DS.state(d, n), k = DEV.KINDS[d.kind];
+    var d = DEV.device(ui.device); if (!d) { ui.device = null; box.hidden = true; return; }
+    var n = now(), s = DS.state(d, n), k = DEV.KINDS[d.kind], A = role() === 'admin', G = role() === 'guest';
+    var CT = SK.control, FL = SK.faults, W = SK.wiring, AT = SK.adminTabs, inW = ui.tab === 'wiring';
+    var ctl = CT.controllable(d) && SEC.can('scenario'), off = CT.isOff(d), iss = G ? null : FL.deviceIssue(d, n);
+    var st = DS.STATUS[s.status], cat = DEV.CATS[d.cat];
     var where = d.block === 'T' ? TR.zone(d.zone).name : (d.room ? d.room + ' · ' : '') + B.blockById(d.block).name + ', ' + d.floor + ' пов.';
-    var h = '<div class="rc-h"><div class="grow"><div class="small" style="color:' + DEV.CATS[d.cat].css + ';font-weight:700">' + DEV.CATS[d.cat].name + '</div>' +
+    var h = '<div class="rc-h">' + (ui.devBack ? '<button class="btn small" data-act="back" title="Повернутися до ' + esc(ui.devBack) + '">←</button>' : '') +
+      '<div class="grow"><div class="dc-cat"><span class="cat-dot" style="background:' + cat.css + '"></span>' + esc(cat.name) + '</div>' +
       '<h2>' + k.icon + ' ' + esc(d.label || d.name) + '</h2><div class="muted small">' + esc(where) + '</div></div>' +
+      (ctl ? '<button class="pwr' + (off ? ' off' : '') + '" data-act="pwr" title="' + (off ? 'Увімкнути' : 'Вимкнути вручну') + '" aria-label="' + (off ? 'Увімкнути' : 'Вимкнути') + '">' + SK.PWR_ICON + '</button>' : '') +
       '<button class="btn small" data-act="close" aria-label="Закрити">✕</button></div>';
-    h += '<div class="metrics" style="grid-template-columns:1fr 1fr">' + metric('<span class="lvl ' + DS.STATUS[s.status].lvl + '">' + DS.STATUS[s.status].name + '</span>', 'Стан') +
-      metric(esc(s.value || '—'), 'Значення') + '</div><div class="small"><span class="demo-badge">симуляція</span></div>';
-    if (role() === 'admin') h += '<h3>Комутація</h3><div class="small">' + (d.conn || []).map(function (c) {
-      return '<span class="cat-dot" style="background:' + SK.wiring.BUS[c.type].css + '"></span><b>' + esc(c.inst ? c.inst.id : d.cabinet || '—') + '</b> · ' + esc(c.port) +
-        '<br><span class="muted">' + esc(SK.wiring.BUS[c.type].name) + ' · ' + esc(c.cable) + (c.len ? ' · ≈' + c.len + ' м' : '') + '</span>';
-    }).join('<br>') + '<br><span class="muted">ID: ' + esc(d.id) + '</span><br><code>' + esc(d.topic) + '</code></div>' +
-      (d.cabinet ? '<div class="row" style="margin-top:6px"><button class="btn small" data-act="wires">Показати комутацію шафи ' + esc(d.cabinet) + '</button></div>' : '');
+
+    /* 1. Стан */
+    h += '<div class="dc-state ' + st.lvl + '"><div class="row"><span class="lvl ' + st.lvl + '">' + st.name + '</span><span class="grow"></span><span class="demo-badge">симуляція</span></div>' +
+      '<div class="dc-val">' + esc(s.value || '—') + '</div>' +
+      (iss && iss.cause !== 'dev' ? '<div class="small">Причина: <b>' + esc(CAUSE[iss.cause] || iss.value) + '</b></div>' : '') +
+      (off ? '<div class="small">Вимкнено з диспетчерської. Натисніть ⏻ угорі, щоб увімкнути.</div>' : '') + '</div>';
+    if (d.label && d.label !== d.name) h += '<div class="small muted">' + esc(d.name) + '</div>';
+
+    /* 2. Дії */
+    var acts = ['<button class="btn small" data-act="fly" title="Наблизити камеру до пристрою">⌖ На карті</button>'];
+    if (d.room) acts.push('<button class="btn small" data-act="room" title="Картка приміщення">🚪 ' + esc(d.room) + '</button>');
+    if (d.room && !G) acts.push('<button class="btn small" data-act="model" title="Окрема 3D-модель приміщення">🔍 Модель кімнати</button>');
+    if (A && d.cabinet && !inW) acts.push('<button class="btn small" data-act="wires" title="Траса кабелю до шафи у вкладці «Комутація»">〰 Траса кабелю</button>');
+    h += '<div class="row dc-acts">' + acts.join('') + '</div>';
+
+    /* 3. Підключення та 4. Імітація — лише адміністратор */
+    var inst = d.conn && d.conn[0] && d.conn[0].inst;
+    if (A && d.cabinet) {
+      var jb = d.room ? W.jbox(d.room) : null, PT = AT.PORT_TXT;
+      h += '<details' + (inW || iss ? ' open' : '') + '><summary>Підключення · ' + esc(d.cabinet) + '</summary>' +
+        '<div class="dc-route">' + [k.icon + ' пристрій', jb ? '📦 ' + jb.id : null, jb ? '〰 лоток' : null, '⚡ ' + d.cabinet]
+          .filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>→</i>') + '</div>' +
+        (d.conn || []).map(function (l) {
+          var ps = FL.portState(l, n);
+          return '<div class="dc-port"><span class="pdot p-' + ps + '" title="' + esc(PT[ps]) + '"></span><span class="cat-dot" style="background:' + W.BUS[l.type].css + '"></span>' +
+            '<b>' + esc(l.inst ? l.inst.short + ' · ' + l.port : W.BUS[l.type].name) + '</b><span class="muted grow">' + esc(W.BUS[l.type].name) + (l.len ? ' · ≈' + l.len + ' м' : '') + '</span>' +
+            (ps !== 'ok' ? '<span class="lvl ' + (ps === 'alarm' ? 'bad' : ps === 'manual' ? 'off' : 'warn') + '">' + esc(PT[ps]) + '</span>' : '') + '</div>';
+        }).join('') + '<div class="small muted">ID ' + esc(d.id) + ' · <code>' + esc(d.topic) + '</code></div></details>';
+
+      var tr = FL.TRIGGERS[d.kind], devF = !!(store.state.faults || {})[d.id];
+      h += '<details' + (inW ? ' open' : '') + '><summary>Імітація (демо)</summary><div class="row dc-acts">' +
+        simB('dev', devF ? 'Пристрій несправний' : 'Несправність пристрою', devF) +
+        (tr ? simB('trig', tr.label, false) : '') +
+        (inst ? simB('ctrl', FL.ctrlDown(inst.id) ? inst.short + ' offline' : 'Відмова ' + inst.short, FL.ctrlDown(inst.id)) : '') + '</div>' +
+        '<div class="small muted">Червона кнопка — імітацію ввімкнено; натисніть ще раз, щоб усунути.</div></details>';
+    }
+
+    /* 5. Довідка */
     var extra = {
       board: 'Онлайн-дошка зберігає конспект заняття в хмару; студенти групи отримують посилання в додатку після пари (концепт).',
       finger: 'Безключовий доступ за відбитком пальця. Шаблон відбитка зберігається лише в зашифрованому вигляді на контролері доступу. Права — за групою, зоною й часом (вкладка «Доступ»).',
       turnstile: 'Прохід за відбитком пальця (для тих, хто не дав згоди на біометрію, — картка або PIN). Кількість проходів рахується знеособлено.',
       vape: 'Реагує на аерозоль і дим. Подія йде в журнал безпеки черговому; пожежна сигналізація не задіяна.',
       signage: 'Показує розклад поверху, вільні аудиторії, оголошення й навігацію. Дані — з того самого сервера.',
-      exhaust: 'Окрема витяжна вентиляція кімнати для куріння: розрідження щодо коридору, вмикається за PIR і працює ще 10 хв. Розміщення кімнат погодити з адміністрацією (ст. 13 Закону № 2899-IV).',
+      exhaust: 'Окрема витяжна вентиляція кімнати для куріння: розрідження щодо коридору, вмикається за PIR і працює ще 10 хв.',
       parking: 'Датчики присутності авто на кожному місці; дані — на табло в’їзду й у студентському додатку.'
     }[d.kind];
-    if (extra) h += '<div class="small muted" style="margin-top:6px">' + esc(extra) + '</div>';
-    if (d.room) h += '<div class="row" style="margin-top:8px"><button class="btn small" data-act="room">Приміщення ' + esc(d.room) + '</button></div>';
-    if (SK.control.controllable(d) && SEC.can('scenario'))   // кнопка ручного вимкнення — у заголовку картки
-      h = h.replace('<button class="btn small" data-act="close"', '<button class="pwr sm' + (SK.control.isOff(d) ? ' off' : '') + '" data-act="pwr" title="' + (SK.control.isOff(d) ? 'Увімкнути' : 'Вимкнути вручну') + '">' + SK.PWR_ICON + '</button><button class="btn small" data-act="close"');
+    if (extra) h += '<details><summary>Про пристрій</summary><div class="small muted">' + esc(extra) + '</div></details>';
+
     box.innerHTML = cardHtml(h); box.hidden = false;
+    box.onchange = null;
     box.onclick = function (e) {
-      var b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.act === 'close') viewer.selectDevice(null);
-      if (b.dataset.act === 'wires') { ui.wCab = d.cabinet; setTab('wiring'); return; }
-      if (b.dataset.act === 'room') { viewer.select(d.room); viewer.focusRoom(d.room); }
-      if (b.dataset.act === 'pwr') SK.adminTabs.toastCmd(SK.control.toggle(d));
+      var b = e.target.closest('button'); if (!b || b.disabled) return;
+      var a = b.dataset.act, sm = b.dataset.dsim;
+      if (a === 'close') { viewer.selectDevice(null); return; }
+      if (a === 'back') { var r = ui.devBack; ui.device = null; ui.devBack = null; viewer.select(r); return; }
+      if (a === 'fly') { ui.pendingBack = ui.devBack; showDevice(d); return; }
+      if (a === 'room') { ui.device = null; ui.devBack = null; viewer.select(d.room); viewer.focusRoom(d.room); return; }
+      if (a === 'model') { SK.RoomView.open(d.room); return; }
+      if (a === 'wires') { setTab('wiring'); AT.focusDevice(d); return; }
+      if (a === 'pwr') { AT.toastCmd(CT.toggle(d)); return; }
+      if (sm === 'dev') FL.toggleDevice(d);
+      if (sm === 'trig') { FL.trigger(d); U.toast('Подію згенеровано — див. «Безпека»', 'warn'); }
+      if (sm === 'ctrl' && inst) FL.toggleCtrl(W.instances(d.cabinet).filter(function (i) { return i.id === inst.id; })[0]);
+      if (sm) { if (inW) AT.refocus(); renderRoomCard(); }
     };
   }
 
@@ -890,7 +950,7 @@ SK.dashboard = (function () {
     rd.readAsArrayBuffer(file);
   }
 
-  return { kpi: kpi, sel: sel, metric: metric, lockedNote: lockedNote, bindRoomRows: bindRoomRows, showDevice: showDevice, setDevCats: setDevCats,
+  return { kpi: kpi, sel: sel, metric: metric, lockedNote: lockedNote, bindRoomRows: bindRoomRows, showDevice: showDevice, setDevCats: setDevCats, openDevice: openDevice, renderCard: renderRoomCard,
     setFloorBtn: setFloorBtn, renderPanel: renderPanel, now: now, eventsTable: eventsTable,
     init: init, setTab: setTab, get viewer() { return viewer; }, ui: ui, setSimTime: setSimTime, setColorMode: function (m) {
     ui.colorMode = m; $('#colorMode').value = m; viewer.refresh(); renderLegend();
