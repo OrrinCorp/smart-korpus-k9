@@ -57,7 +57,7 @@ SK.student = (function () {
     var d = new Date(e.date + 'T12:00:00');
     return '<div class="card ev"><div class="ev-date"><b>' + d.getDate() + '</b>' + U.DAYS_SHORT[U.dow(d)] + '</div><div class="grow">' +
       '<div class="small muted">' + esc(UE.TYPES[e.type] || '') + ' · ' + e.start + '–' + e.end + '</div><div class="subj">' + esc(e.title) + '</div>' +
-      '<div class="small">📍 ' + (e.room ? '<a href="#" data-room="' + e.room + '">' + e.room + '</a> · ' + esc(B.whereText(B.room(e.room))) : esc(e.place)) + '</div>' +
+      '<div class="small">' + SK.icon('target', 'ico sm') + ' ' + (e.room ? '<a href="#" data-room="' + e.room + '">' + e.room + '</a> · ' + esc(B.whereText(B.room(e.room))) : esc(e.place)) + '</div>' +
       (!compact && e.desc ? '<div class="small muted">' + esc(e.desc) + '</div>' : '') + '</div></div>';
   }
 
@@ -89,8 +89,8 @@ SK.student = (function () {
     var h = '<div class="card lesson-big" style="margin-top:12px"><div class="small muted">' + title + ' · ' + l.pair + '-га пара · ' + p.start + '–' + p.end + '</div>' +
       '<div class="row"><a class="room" href="#" data-room="' + l.room + '">' + l.room + '</a></div>' +
       '<div class="subj"><b>' + esc(l.subject) + '</b> · ' + esc(l.kind) + '</div><div class="when">' + esc(l.teacher) + '</div>' +
-      '<div class="small" style="margin-top:4px">📍 ' + esc(B.whereText(r)) + '</div>';
-    if (S.lessonsAt(l.room, l.day, l.pair).length > 1) h += '<div class="small" style="color:var(--bad)">⚠ Аудиторію уточнюється (зміни в розкладі)</div>';
+      '<div class="small" style="margin-top:4px">' + SK.icon('target', 'ico sm') + ' ' + esc(B.whereText(r)) + '</div>';
+    if (S.lessonsAt(l.room, l.day, l.pair).length > 1) h += '<div class="small" style="color:var(--bad)">' + SK.icon('alert', 'ico sm') + ' Аудиторію уточнюється (зміни в розкладі)</div>';
     if (isNow) h += '<div class="progress"><i style="width:' + Math.round((m - p.s) / (p.e - p.s) * 100) + '%"></i></div><div class="small muted">До кінця: ' + (p.e - m) + ' хв</div>';
     else if (p.s > m) h += '<div class="small muted" style="margin-top:4px">Почнеться через ' + (p.s - m) + ' хв</div>';
     return h + '</div>';
@@ -99,7 +99,7 @@ SK.student = (function () {
     var p = S.PAIRS[l.pair - 1];
     return '<div class="lrow' + (isNow ? ' now' : '') + '"><div class="tm"><b>' + p.start + '</b>' + p.end + '</div><div><div class="subj">' + esc(l.subject) + '</div>' +
       '<div class="small muted">' + esc(l.kind) + ' · ' + esc(l.teacher) + '</div>' +
-      (S.lessonsAt(l.room, l.day, l.pair).length > 1 ? '<div class="small" style="color:var(--bad)">⚠ Аудиторію уточнюється</div>' : '') + '</div>' +
+      (S.lessonsAt(l.room, l.day, l.pair).length > 1 ? '<div class="small" style="color:var(--bad)">' + SK.icon('alert', 'ico sm') + ' Аудиторію уточнюється</div>' : '') + '</div>' +
       '<a class="chip link" href="#" data-room="' + l.room + '">' + l.room + '</a></div>';
   }
 
@@ -145,9 +145,9 @@ SK.student = (function () {
       '<button class="btn primary small">Знайти</button></form>';
     if (ui.found) {
       var r = B.room(ui.found);
-      h += '<div class="card"><div class="row"><h2>' + r.id + '</h2><span class="grow"></span><button class="btn small" onclick="SK.student.clear()" aria-label="Закрити">✕</button></div>' +
+      h += '<div class="card"><div class="row"><h2>' + r.id + '</h2><span class="grow"></span><button class="btn small" onclick="SK.student.clear()" aria-label="Закрити">' + SK.icon('x', 'ico sm') + '</button></div>' +
         '<div class="small muted">' + esc(r.name) + (r.capacity ? ' · ' + r.capacity + ' місць' : '') + '</div>' +
-        '<div style="margin-top:6px">📍 ' + esc(B.whereText(r)) + '</div>' +
+        '<div style="margin-top:6px">' + SK.icon('target', 'ico sm') + ' ' + esc(B.whereText(r)) + '</div>' +
         '<div class="small muted">Вхід — головний, під перемичкою' + (r.floor > 0 ? '; сходами на ' + r.floor + ' поверх' : '') + '. Біля сходів — інфотабло з розкладом.</div>' +
         nearby(r);
       if (r.bookable) {
@@ -182,8 +182,8 @@ SK.student = (function () {
     var blk = r.block === 'C' ? 'A' : r.block, same = B.rooms.filter(function (x) { return x.block === blk && x.floor === r.floor; });
     var wc = same.filter(function (x) { return x.type === 'wc'; }).map(function (x) { return x.id + ' (' + (/жін/.test(x.name) ? 'Ж' : 'Ч') + ')'; });
     var sm = same.filter(function (x) { return x.type === 'smoking'; }).map(function (x) { return x.id; });
-    return '<div class="small" style="margin-top:6px">🚻 Санвузли на поверсі: ' + (wc.join(', ') || '—') +
-      (sm.length ? ' · 🚬 Кімната для куріння: ' + sm.join(', ') : '') + '</div>';
+    return '<div class="small" style="margin-top:6px">Санвузли на поверсі: ' + (wc.join(', ') || '—') +
+      (sm.length ? ' · кімната для куріння: ' + sm.join(', ') : '') + '</div>';
   }
   function sel(id, opts, val) {
     return '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
@@ -203,7 +203,7 @@ SK.student = (function () {
     var cf = S.conflicts().filter(function (c) { return c.lessons.some(function (l) { return l.group === me.group; }); });
     if (cf.length) h += '<h3>Зміни для вашої групи</h3>' + cf.map(function (c) {
       var l = c.lessons[0];
-      return '<div class="card small">⚠ ' + U.DAYS[l.day] + ', ' + l.pair + '-га пара: аудиторію ' + l.room + ' уточнюється.</div>';
+      return '<div class="card small">' + SK.icon('alert', 'ico sm') + ' ' + U.DAYS[l.day] + ', ' + l.pair + '-га пара: аудиторію ' + l.room + ' уточнюється.</div>';
     }).join('');
     h += '<h3>Про застосунок</h3><div class="small muted">Онлайн-розклад, розклад подій і оголошення корпусу № 9 ЧНУ (прототип команди «Ша-Пі-То»). Дані демонстраційні; персональні дані не використовуються.</div>' +
       '<div class="row" style="margin-top:8px"><button class="btn small" onclick="SK.student.changeGroup()">Змінити групу</button></div>';

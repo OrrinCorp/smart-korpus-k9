@@ -33,9 +33,9 @@ SK.RoomView = (function () {
     el.className = 'rm-modal'; el.hidden = true;
     el.innerHTML = '<div class="rm-head"><div class="grow"><b id="rmTitle"></b> <span class="muted small" id="rmSub"></span></div>' +
       '<div class="row small" id="rmLayers"></div>' +
-      '<button class="btn small" id="rmPrev" title="Попереднє приміщення">◀</button><button class="btn small" id="rmNext" title="Наступне приміщення">▶</button>' +
-      '<button class="btn small" id="rmHome" title="Типовий вигляд">⌂</button>' +
-      '<button class="btn small" id="rmClose" aria-label="Закрити">✕ Закрити</button></div>' +
+      '<button class="btn small" id="rmPrev" title="Попереднє приміщення">' + SK.icon('chevL', 'ico sm') + '</button><button class="btn small" id="rmNext" title="Наступне приміщення">' + SK.icon('chevR', 'ico sm') + '</button>' +
+      '<button class="btn small" id="rmHome" title="Типовий вигляд">' + SK.icon('target', 'ico sm') + '</button>' +
+      '<button class="btn small" id="rmClose" aria-label="Закрити">' + SK.icon('x', 'ico sm') + ' Закрити</button></div>' +
       '<div class="rm-body"><div class="rm-view viewer" id="rmView"></div><aside class="rm-side" id="rmSide"></aside></div>';
     document.body.appendChild(el);
     view = el.querySelector('#rmView'); side = el.querySelector('#rmSide');
@@ -121,13 +121,16 @@ SK.RoomView = (function () {
   }
   var texCache = {};
   function devTex(kind, status) {
-    var key = kind + status; if (texCache[key]) return texCache[key];
+    var dk = SK.theme && SK.theme.isDark(), key = kind + status + (dk ? 'd' : 'l'); if (texCache[key]) return texCache[key];
     var k = REG.KINDS[kind], cat = REG.CATS[k.cat];
     var c = document.createElement('canvas'); c.width = c.height = 96; var g = c.getContext('2d');
-    g.beginPath(); g.arc(48, 48, 42, 0, Math.PI * 2); g.fillStyle = status === 'alarm' ? '#ffd9d9' : '#fff'; g.fill();
-    g.lineWidth = 8; g.strokeStyle = status === 'alarm' ? '#d23c3c' : status === 'fault' ? '#d99a1e' : cat.css; g.stroke();
-    if (status === 'active') { g.beginPath(); g.arc(78, 18, 11, 0, Math.PI * 2); g.fillStyle = '#2e9e5b'; g.fill(); }
-    g.font = '44px "Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k.icon, 48, 52);
+    g.beginPath(); g.arc(48, 48, 42, 0, Math.PI * 2); g.fillStyle = status === 'alarm' ? (dk ? '#3a1216' : '#ffe1e3') : dk ? '#0e1620' : '#fff'; g.fill();
+    g.lineWidth = 7; g.strokeStyle = status === 'alarm' ? '#f0606a' : status === 'fault' ? '#f2b84b' : cat.css; g.stroke();
+    if (SK.icons && window.Path2D) {
+      g.save(); g.translate(24, 24); g.scale(2, 2); g.lineWidth = 1.9; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.strokeStyle = dk ? '#e4edf3' : '#14212b'; g.stroke(new Path2D(SK.icons.path(k.ic))); g.restore();
+    } else { g.font = '44px "Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k.emoji || '•', 48, 52); }
+    if (status === 'active') { g.beginPath(); g.arc(78, 18, 11, 0, Math.PI * 2); g.fillStyle = '#3ecf8e'; g.fill(); }
     var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
     return (texCache[key] = new THREE.SpriteMaterial({ map: t, depthTest: false }));
   }

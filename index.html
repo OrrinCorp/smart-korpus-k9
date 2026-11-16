@@ -1,40 +1,44 @@
 <!doctype html>
-<html lang="uk">
+<html lang="uk" data-theme-default="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Розумний корпус · К9 ЧНУ — адміністрування</title>
 <link rel="stylesheet" href="css/base.css">
+<script src="js/ui/icons.js"></script>
 <script src="js/core/theme.js"></script>
 <link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/shell.css">
 </head>
 <body>
 <header class="top">
+  <button class="icon-btn menu-btn" id="menuBtn" aria-label="Меню розділів" aria-controls="drawer" aria-expanded="false"></button>
   <div class="brand">
     <div class="logo" aria-hidden="true">К9</div>
-    <div>
-      <div class="title">Розумний корпус <span class="muted">· адміністрування</span></div>
-      <div class="sub">Корпус № 9 ЧНУ · навчальний прототип команди «Ша-Пі-То», не офіційна система</div>
+    <div class="brand-t">
+      <div class="title">Розумний корпус</div>
+      <div class="sub">Корпус № 9 ЧНУ · прототип «Ша-Пі-То»</div>
     </div>
   </div>
+  <button class="sys-pill" id="sysPill" title="Стан корпусу — відкрити огляд"><i></i><span>…</span></button>
   <div class="clock" title="Симульований час — використовується для демонстрації">
     <span id="clockDay"></span> <b id="clockTime">--:--</b>
     <span id="clockPair" class="muted small"></span>
     <select id="clockSpeed" title="Швидкість часу">
       <option value="1">×1</option><option value="10">×10</option><option value="60">×60</option><option value="300">×300</option>
     </select>
-    <button class="btn small" id="clockSet" title="Змінити симульований час">🕒</button>
+    <button class="icon-btn" id="clockSet" title="Змінити симульований час"></button>
   </div>
-  <div class="row top-right">
-    <button class="btn small theme-btn" data-theme-toggle aria-label="Перемкнути тему">☾</button>
+  <div class="top-right">
     <span class="demo-badge" title="Показники згенеровані симулятором, не отримані від реальних систем">демо</span>
-    <select id="role" title="Роль користувача">
+    <label class="role-sel" title="Роль користувача"><span class="role-ico"></span>
+      <select id="role">
         <option value="guest">Гість / глядач</option>
         <option value="responsible">Відповідальна особа</option>
         <option value="admin">Адміністратор</option>
-    </select>
-    <button class="btn small" id="tourBtn" title="Покроковий демо-сценарій для захисту">▶ Тур</button>
-    <a class="btn small" href="student.html" title="Студентський застосунок (повернення — кнопка «← Панель»)">Студентам →</a>
+      </select>
+    </label>
+    <button class="icon-btn theme-btn" data-theme-toggle aria-label="Перемкнути тему"></button>
   </div>
 </header>
 
@@ -54,31 +58,53 @@
   </div>
 </div>
 
+<!-- Меню розділів, що виїжджає зліва -->
+<div class="scrim" id="scrim" hidden></div>
+<nav class="drawer" id="drawer" aria-label="Розділи" aria-hidden="true">
+  <div class="drawer-h">
+    <div class="logo" aria-hidden="true">К9</div>
+    <div class="grow"><b>Розділи</b><div class="small muted">Оберіть, що показати поверх карти</div></div>
+    <button class="icon-btn" id="drawerClose" aria-label="Закрити меню"></button>
+  </div>
+  <div class="drawer-b" id="tabGroups"></div>
+  <div class="drawer-f">
+    <button class="d-link" id="tourBtn" title="Покроковий демо-сценарій для захисту"><span class="d-ico" data-i="play"></span>Демо-тур для захисту</button>
+    <a class="d-link" href="student.html" title="Студентський застосунок"><span class="d-ico" data-i="phone"></span>Застосунок для студентів</a>
+  </div>
+</nav>
+
 <main class="layout">
   <section class="viewer" id="viewer" aria-label="3D-карта корпусу">
     <div class="v-toolbar">
-      <input type="text" id="mapSearch" class="map-search" placeholder="🔍 Знайти: А-305" autocomplete="off" title="Знайти приміщення на карті (Enter)">
-      <select id="colorMode" title="Що показувати кольором"></select>
-      <button class="btn small" id="devBtn" title="Показати розумні пристрої на плані">📡 Пристрої</button>
+      <div class="seg view-seg" role="group" aria-label="Вигляд карти">
+        <button id="view3d" class="on" title="Об'ємний вигляд корпусу"><span data-i="cube"></span>3D</button>
+        <button id="planBtn" title="План поверху — вигляд згори"><span data-i="plan"></span>План</button>
+      </div>
+      <label class="map-search-w"><span data-i="search"></span><input type="text" id="mapSearch" class="map-search" placeholder="Знайти: А-305" autocomplete="off" title="Знайти приміщення на карті (Enter)"></label>
+      <label class="cm-w" title="Що показувати кольором"><span data-i="layers"></span><select id="colorMode"></select></label>
+      <button class="tb-btn" id="devBtn" title="Показати розумні пристрої на плані"><span data-i="radar"></span>Пристрої</button>
     </div>
-    <!-- Ліва панель: «ліфт» поверхів + режими перегляду -->
+    <!-- Ліва панель: поверхи + режими перегляду -->
     <div class="v-side">
       <div class="v-floors" id="floors" role="group" aria-label="Поверх"></div>
       <div class="v-views">
-        <button class="vbtn" id="planBtn" title="План поверху — вигляд згори">▦<span>План</span></button>
-        <button class="vbtn" id="explBtn" title="Розвести поверхи по висоті">☰<span>Розсунути</span></button>
-        <button class="vbtn" id="lblBtn" title="Підписи всіх приміщень">Aa<span>Підписи</span></button>
-        <button class="vbtn" id="homeBtn" title="Типовий вигляд">⌂<span>Огляд</span></button>
+        <button class="vbtn" id="explBtn" title="Розвести поверхи по висоті"><span data-i="layers"></span><em>Розсунути</em></button>
+        <button class="vbtn" id="lblBtn" title="Підписи всіх приміщень"><span data-i="tag"></span><em>Підписи</em></button>
+        <button class="vbtn" id="homeBtn" title="Типовий вигляд"><span data-i="target"></span><em>Скинути</em></button>
       </div>
     </div>
     <div class="v-devpop card" id="devPop" hidden></div>
-    <div class="v-legend card" id="legend"></div>
+    <div class="v-legend" id="legend"></div>
     <div class="v-room card" id="roomCard" hidden></div>
-    <div class="v-hint small muted">Клік — картка · подвійний клік — модель кімнати / наблизити пристрій</div>
+    <div class="v-hint small muted">Клік — картка · подвійний клік — модель кімнати</div>
   </section>
 
-  <aside class="panel">
-    <nav class="groups" id="tabGroups" aria-label="Розділи"></nav>
+  <aside class="panel" id="sidePanel" aria-label="Розділ">
+    <div class="panel-h">
+      <span class="ph-ico" id="phIco"></span>
+      <div class="grow"><div class="ph-t" id="phTitle">Огляд</div><div class="ph-s" id="phSub"></div></div>
+      <button class="icon-btn" id="panelMin" title="Згорнути панель"></button>
+    </div>
     <nav class="tabs" id="tabs" role="tablist">
       <button data-tab="overview" class="on">Огляд</button>
       <button data-tab="control">Диспетчерська</button>
@@ -97,6 +123,7 @@
     </nav>
     <div class="panel-body" id="panel"></div>
   </aside>
+  <button class="panel-open" id="panelOpen" hidden title="Показати панель"><span id="poIco"></span><span id="poTxt">Огляд</span></button>
 </main>
 
 <div class="tour card" id="tour" hidden>

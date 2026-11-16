@@ -26,11 +26,18 @@ SK.Viewer = function (container, opts) {
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(42, 1, 0.5, 1000);
   var HOME = { pos: new THREE.Vector3(92, 88, 82), target: new THREE.Vector3(6, 2, -22) };
-  camera.position.copy(HOME.pos);
+  /* Стартовий ракурс залежить від форми екрана: на вузькому (телефон, портрет) камера відходить далі,
+     щоб корпус і територія вміщалися по ширині */
+  function homePos() {
+    var w = container.clientWidth || 1, h = container.clientHeight || 1, a = w / h;
+    var k = a >= 1.3 ? 1 : Math.min(2.15, 1.25 / a);
+    return HOME.target.clone().add(HOME.pos.clone().sub(HOME.target).multiplyScalar(k));
+  }
+  camera.position.copy(homePos());
   var controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.target.copy(HOME.target);
   controls.maxPolarAngle = Math.PI / 2.08;
-  controls.minDistance = 15; controls.maxDistance = 320;
+  controls.minDistance = 15; controls.maxDistance = 420;
   controls.enableDamping = true; controls.dampingFactor = 0.12;
   controls.update();
 
@@ -115,6 +122,7 @@ SK.Viewer = function (container, opts) {
     m.position.set((r.x0 + r.x1) / 2, r.z0 + h / 2 + 0.05, -(r.y0 + r.y1) / 2);
     m.userData = { room: r.id };
     var e = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
+    e.userData.roomEdge = true;
     m.add(e);
     m.userData.edges = e;
     root.add(m);
@@ -137,12 +145,12 @@ SK.Viewer = function (container, opts) {
   function paintLabel(c, text, px, strong) {
     var g = c.getContext('2d'), dk = dark();
     g.clearRect(0, 0, c.width, c.height);
-    g.font = 'bold ' + px + 'px Arial';
+    g.font = 'bold ' + px + 'px "Segoe UI", Arial';
     while (g.measureText(text).width > 232 && px > 12) { px -= 2; g.font = 'bold ' + px + 'px Arial'; }   // довгий текст — менший шрифт
-    g.fillStyle = dk ? (strong ? 'rgba(16,19,22,.95)' : 'rgba(16,19,22,.88)') : (strong ? 'rgba(255,255,255,.94)' : 'rgba(255,255,255,.88)');
-    roundRect(g, 2, 2, 252, 60, 12); g.fill();
-    g.strokeStyle = dk ? '#5a666e' : '#33424c'; g.lineWidth = strong ? 3 : 2; roundRect(g, 2, 2, 252, 60, 12); g.stroke();
-    g.fillStyle = dk ? '#e6ebee' : '#1c2a33'; g.font = 'bold ' + px + 'px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = dk ? (strong ? 'rgba(10,16,22,.94)' : 'rgba(10,16,22,.86)') : (strong ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.9)');
+    roundRect(g, 2, 2, 252, 60, 14); g.fill();
+    g.strokeStyle = dk ? (strong ? '#22c3dd' : '#2d4352') : (strong ? '#0e8aa6' : '#9fb0bc'); g.lineWidth = strong ? 3 : 2; roundRect(g, 2, 2, 252, 60, 14); g.stroke();
+    g.fillStyle = dk ? '#e4edf3' : '#14212b'; g.font = 'bold ' + px + 'px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(text, 128, 34);
   }
   function makeLabel(text, px, strong) {
@@ -180,8 +188,8 @@ SK.Viewer = function (container, opts) {
         var roof = flat(z.x0 - 0.3, z.x1 + 0.3, z.y0 - 0.3, z.y1 + 0.3, 0x9aa5ad, 0.12, 2.4);
         roof.material.transparent = true; roof.material.opacity = 0.75;
       }
-      var lab = makeLabel(z.kind === 'parking' ? z.id : z.kind === 'rest' ? 'Відпочинок' : z.kind === 'gen' ? 'ДГУ' : z.id, 30, false);
-      lab.position.set((z.x0 + z.x1) / 2, z.kind === 'smoke' ? 4.6 : 2.2, -(z.y0 + z.y1) / 2); lab.scale.set(6.4, 1.6, 1);
+      var lab = makeLabel(z.kind === 'parking' ? 'Парковка ' + z.id : z.kind === 'rest' ? 'Відпочинок' : z.kind === 'gen' ? 'Генератор' : z.id, 34, false);
+      lab.position.set((z.x0 + z.x1) / 2, z.kind === 'smoke' ? 4.6 : 2.2, -(z.y0 + z.y1) / 2); lab.scale.set(10, 2.5, 1);
       terr.add(lab); zoneLabels.push(lab);
     });
     TR.spots.forEach(function (s) {
@@ -211,29 +219,35 @@ SK.Viewer = function (container, opts) {
   var devGroup = new THREE.Group(); scene.add(devGroup);
   var devSprites = [], devCats = null, texCache = {}, selectedDev = null;
   var REG = SK.devicesI3;
+  /* Значок пристрою: темне коло, кільце кольору категорії, лінійна SVG-іконка (Path2D) і окремий значок стану */
   function devTexture(kind, status) {
-    var key = kind + '|' + status;
+    var dk = dark(), key = kind + '|' + status + '|' + (dk ? 'd' : 'l');
     if (texCache[key]) return texCache[key];
     var k = REG.KINDS[kind], cat = REG.CATS[k.cat];
     var c = document.createElement('canvas'); c.width = c.height = 96;
     var g = c.getContext('2d');
-    /* Кільце — завжди колір категорії; стан — окремий значок, щоб категорію не плутати з несправністю */
+    var dim = status === 'idle' || status === 'off';
     g.beginPath(); g.arc(48, 48, 40, 0, Math.PI * 2);
-    g.fillStyle = status === 'alarm' ? '#ffd9d9' : status === 'idle' || status === 'off' ? '#e4e8eb' : '#ffffff'; g.fill();
-    g.lineWidth = 7; g.strokeStyle = status === 'alarm' ? '#d23c3c' : cat.css; g.stroke();
-    function badge(bg, txt, fg) { g.beginPath(); g.arc(76, 20, 17, 0, Math.PI * 2); g.fillStyle = bg; g.fill(); g.lineWidth = 3; g.strokeStyle = '#ffffff'; g.stroke();
+    g.fillStyle = status === 'alarm' ? (dk ? '#3a1216' : '#ffe1e3') : dk ? '#0e1620' : '#ffffff'; g.fill();
+    g.lineWidth = 6; g.strokeStyle = status === 'alarm' ? '#f0606a' : cat.css; g.globalAlpha = dim ? 0.5 : 1; g.stroke(); g.globalAlpha = 1;
+    /* Іконка 24×24 → 48×48 у центрі */
+    if (SK.icons && window.Path2D) {
+      g.save(); g.translate(24, 24); g.scale(2, 2);
+      g.lineWidth = 1.9; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.strokeStyle = dk ? (dim ? '#6c7f8f' : '#e4edf3') : (dim ? '#9aa8b3' : '#14212b');
+      g.stroke(new Path2D(SK.icons.path(k.ic)));
+      g.restore();
+    } else {
+      g.font = '44px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#1b2830'; g.globalAlpha = dim ? 0.45 : 1; g.fillText(k.emoji || '•', 48, 52); g.globalAlpha = 1;
+    }
+    function badge(bg, txt, fg) { g.beginPath(); g.arc(76, 20, 17, 0, Math.PI * 2); g.fillStyle = bg; g.fill(); g.lineWidth = 3; g.strokeStyle = dk ? '#0e1620' : '#ffffff'; g.stroke();
       g.fillStyle = fg || '#ffffff'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 76, 21); }
-    if (status === 'active') { g.beginPath(); g.arc(78, 18, 10, 0, Math.PI * 2); g.fillStyle = '#2e9e5b'; g.fill(); }
-    g.font = '44px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#1b2830';
-    g.globalAlpha = status === 'idle' ? 0.55 : 1;
-    g.globalAlpha = status === 'idle' || status === 'off' ? 0.45 : 1;
-    g.fillText(k.icon, 48, 52);
-    g.globalAlpha = 1;
-    if (status === 'fault') badge('#e2a21a', '!', '#1b2830');
-    if (status === 'alarm') badge('#d23c3c', '!');
-    if (status === 'off') {      // значок «вимкнено вручну» — намальована іконка живлення
-      badge('#6b7780', '');
+    if (status === 'active') { g.beginPath(); g.arc(78, 18, 10, 0, Math.PI * 2); g.fillStyle = '#3ecf8e'; g.fill(); g.lineWidth = 3; g.strokeStyle = dk ? '#0e1620' : '#ffffff'; g.stroke(); }
+    if (status === 'fault') badge('#f2b84b', '!', '#14212b');
+    if (status === 'alarm') badge('#f0606a', '!');
+    if (status === 'off') {      // значок «вимкнено вручну» — іконка живлення
+      badge('#6c7f8f', '');
       g.strokeStyle = '#ffffff'; g.lineWidth = 3.5; g.lineCap = 'round';
       g.beginPath(); g.arc(76, 22, 8, -Math.PI * 0.32, Math.PI * 1.32); g.stroke();
       g.beginPath(); g.moveTo(76, 10); g.lineTo(76, 21); g.stroke();
@@ -292,7 +306,8 @@ SK.Viewer = function (container, opts) {
     if (isolated) devSprites.forEach(function (s) { if (s.userData.device.room !== isolated) s.visible = false; });
     shells.forEach(function (s) {
       var m = s.children[0].material;
-      m.opacity = s.userData.roof ? (floor === null ? 0.35 : 0.06) : (floor === null ? 0.14 : 0.06);
+      /* Оболонка блоків — ледь помітна: лише натяк на об'єм будівлі */
+      m.opacity = s.userData.roof ? (floor === null ? 0.12 : 0.03) : (floor === null ? 0.05 : 0.02);
       s.visible = !exploded && !model;
     });
     blockLabels.forEach(function (l) { l.visible = floor === null && !isolated; });
@@ -356,19 +371,21 @@ SK.Viewer = function (container, opts) {
     });
   }
 
+  /* Кольори задаються як у CSS (sRGB); рендерер виводить у sRGB, тож переводимо в лінійний простір —
+     тоді колір кімнати на карті збігається з кольором у легенді */
+  function setC(color, hex) { color.setHex(hex); color.convertSRGBToLinear(); return color; }
   function recolor() {
     Object.keys(roomMeshes).forEach(function (id) {
       var rm = roomMeshes[id];
       var c = opts.colorFor ? opts.colorFor(rm.room) : 0xcccccc;
       if (c == null) c = 0xcccccc;
-      rm.mesh.material.color.setHex(c);
-      if (dark()) rm.mesh.material.color.multiplyScalar(0.72);   // чорна тема — без «засвіту»
-      rm.extra.forEach(function (m) { if (m.material && m.material.color) m.material.color.setHex(c); });
+      setC(rm.mesh.material.color, c);
+      rm.extra.forEach(function (m) { if (m.material && m.material.color) setC(m.material.color, c); });
       var a = opts.alarmFor ? opts.alarmFor(rm.room) : false;
       alarms[id] = a;
       if (!a) rm.mesh.material.emissive.setHex(0x000000);
     });
-    if (opts.spotColor) spotMeshes.forEach(function (m) { m.material.color.setHex(opts.spotColor(m.userData.spot)); });
+    if (opts.spotColor) spotMeshes.forEach(function (m) { setC(m.material.color, opts.spotColor(m.userData.spot)); });
     refreshDevices();
     if (selected) markSelected(selected);
   }
@@ -604,12 +621,18 @@ SK.Viewer = function (container, opts) {
   }
 
   /* ---------- Цикл рендерингу ---------- */
+  /* rightInset — ширина плаваючої панелі поверх карти справа: центр сцени зсуваємо в лівішу, видиму частину */
+  var rightInset = 0;
   function resize() {
     var w = container.clientWidth || 1, h = container.clientHeight || 1;
     renderer.setSize(w, h, false);
     renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
-    camera.aspect = w / h; camera.updateProjectionMatrix();
+    var ins = rightInset && w - rightInset > 320 ? rightInset : 0;
+    camera.aspect = (w + ins) / h;
+    if (ins) camera.setViewOffset(w + ins, h, ins, 0, w, h); else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
   }
+  this.setRightInset = function (px) { rightInset = px || 0; resize(); };
   if (window.ResizeObserver) new ResizeObserver(resize).observe(container);
   window.addEventListener('resize', resize);
   resize();
@@ -656,16 +679,19 @@ SK.Viewer = function (container, opts) {
   /* Тема: чорна / світла — земля, сітка, світло, підписи */
   function applyTheme() {
     var dk = dark();
-    ground.material.color.setHex(dk ? 0x030405 : 0xe9eeea);
-    grid.material.color.setHex(dk ? 0x161b1f : 0xd8dfe3);
-    hemi.intensity = dk ? 0.7 : 0.95; hemi.groundColor.setHex(dk ? 0x20262b : 0xb8c4cc); sun.intensity = dk ? 0.38 : 0.45;
-    slabs.forEach(function (s) { if (s.material && s.material.color) s.material.color.setHex(dk ? 0x3a444b : 0xaab4ba); });
+    setC(ground.material.color, dk ? 0x0c131a : 0xe6ecef);
+    setC(grid.material.color, dk ? 0x1a2836 : 0xd3dbe0);
+    hemi.intensity = dk ? 0.85 : 0.95; setC(hemi.groundColor, dk ? 0x1a2430 : 0xb8c4cc); sun.intensity = 0.45;
+    setC(edgeMat.color, dk ? 0x2f7f92 : 0x7d8f9c); edgeMat.opacity = dk ? 0.35 : 0.35;
+    Object.keys(roomMeshes).forEach(function (id) { var e = roomMeshes[id].mesh.userData.edges; if (e) setC(e.material.color, dk ? 0x0a0f14 : 0xffffff); });
+    shells.forEach(function (s) { var m = s.children[0].material; if (m.userData.baseHex == null) m.userData.baseHex = m.color.getHex(); if (dk) setC(m.color, 0x22c3dd); else m.color.setHex(m.userData.baseHex); });
+    slabs.forEach(function (s) { var mm = s.material || (s.children[0] && s.children[0].material); if (!mm || !mm.color) return; setC(mm.color, s.userData.corridor ? (dk ? 0x17212b : 0xe9ecee) : (dk ? 0x1d2a36 : 0xaab4ba)); });
     /* Територія: у чорній темі світлі поверхні (доріжки, газон, майданчики) приглушуються */
     terr.traverse(function (o) {
       if (!o.isMesh || !o.material || !o.material.color || o.userData.spot) return;
       if (o.userData.baseHex == null) o.userData.baseHex = o.material.color.getHex();
       o.material.color.setHex(o.userData.baseHex);
-      if (dk) o.material.color.multiplyScalar(0.32);
+      if (dk) { o.material.color.convertSRGBToLinear(); o.material.color.multiplyScalar(0.16); }
     });
     recolor();
     allLabels = allLabels.filter(function (s) { return s.parent; });
@@ -682,7 +708,7 @@ SK.Viewer = function (container, opts) {
   function planCamera() {
     var z = (floor === null ? 1 : floor) * B.floorH + 1;
     tween = { t0: performance.now(), p0: camera.position.clone(), c0: controls.target.clone(),
-      c1: new THREE.Vector3(2, z, -27), p1: new THREE.Vector3(2, z + 108, -26.9) };
+      c1: new THREE.Vector3(2, z, -27), p1: new THREE.Vector3(2, z + 132, -26.9) };
   }
   this.setPlan = function (on) {
     plan = !!on;
@@ -760,7 +786,7 @@ SK.Viewer = function (container, opts) {
     flyTo(new THREE.Vector3((r.x0 + r.x1) / 2, r.z0 + 1, -(r.y0 + r.y1) / 2), 55);
   };
   this.home = function () {
-    tween = { t0: performance.now(), p0: camera.position.clone(), c0: controls.target.clone(), p1: HOME.pos.clone(), c1: HOME.target.clone() };
+    tween = { t0: performance.now(), p0: camera.position.clone(), c0: controls.target.clone(), p1: homePos(), c1: HOME.target.clone() };
   };
   this.route = route;
   this.clearRoute = clearRoute;

@@ -15,7 +15,7 @@ SK.adminTabs = (function () {
       return '<tr' + (past ? ' style="opacity:.55"' : '') + '><td class="small">' + e.date.slice(8) + '.' + e.date.slice(5, 7) + '<br>' + e.start + '–' + e.end + '</td><td><b>' + esc(e.title) + '</b>' +
         '<div class="small muted">' + esc(UE.TYPES[e.type] || '') + ' · для: ' + esc(audName(e.audience)) + '</div></td><td class="small">' +
         (e.room ? '<a href="#" data-room="' + e.room + '">' + e.room + '</a>' : esc(e.place)) + '</td><td>' +
-        (canE ? '<button class="btn small" data-ev-edit="' + e.id + '">✎</button><button class="btn small danger" data-ev-del="' + e.id + '">✕</button>' : '') + '</td></tr>';
+        (canE ? '<button class="btn small" data-ev-edit="' + e.id + '" title="Редагувати">' + SK.icon('edit', 'ico sm') + '</button><button class="btn small danger" data-ev-del="' + e.id + '" title="Видалити">' + SK.icon('trash', 'ico sm') + '</button>' : '') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
     if (canE) {
       var e0 = st.evEdit ? UE.list().filter(function (x) { return x.id === st.evEdit; })[0] : null;
@@ -33,7 +33,7 @@ SK.adminTabs = (function () {
 
     h += '<h2 style="margin-top:18px">Оголошення для студентів</h2>' + store.state.announcements.slice(0, 8).map(function (a) {
       return '<div class="small" style="margin-bottom:6px"><b>' + esc(a.from) + ':</b> ' + esc(a.text) + ' <span class="muted">' + U.fmtDateTime(new Date(a.ts)) + '</span>' +
-        (SEC.can('announce') ? ' <button class="btn small" data-an-del="' + a.id + '">✕</button>' : '') + '</div>';
+        (SEC.can('announce') ? ' <button class="btn small" data-an-del="' + a.id + '" title="Видалити">' + SK.icon('trash', 'ico sm') + '</button>' : '') + '</div>';
     }).join('');
     if (SEC.can('announce')) h += '<div class="row"><input type="text" id="annText" class="grow" placeholder="Текст оголошення"><button class="btn small primary" id="annSend">Надіслати</button></div>';
     p.innerHTML = h;
@@ -80,7 +80,7 @@ SK.adminTabs = (function () {
         var sc = r.type === 'manual' ? '— обирається вручну' : esc(SCN.get(r.sc).name) + (r.hold ? '<div class="small muted">затримка: «' + esc(SCN.get(r.hold).name) + '»</div>' : '');
         return '<tr' + (r.on ? '' : ' style="opacity:.5"') + '><td><b>' + r.prio + '</b></td><td><b>' + esc(r.name) + '</b><div class="small muted">' + esc(SCN.RULE_TYPES[r.type].name) + ' · ' + esc(SCN.describeRule(r)) + '</div></td>' +
           '<td class="small">' + sc + '</td><td>' + (canS ? '<button class="btn small" data-r-tg="' + r.id + '">' + (r.on ? 'Вимк.' : 'Увімк.') + '</button>' +
-          (r.system ? '' : '<button class="btn small" data-r-ed="' + r.id + '">✎</button>') : '') + '</td></tr>';
+          (r.system ? '' : '<button class="btn small" data-r-ed="' + r.id + '" title="Редагувати">' + SK.icon('edit', 'ico sm') + '</button>') : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
     if (canS) h += ruleForm();
 
@@ -88,7 +88,7 @@ SK.adminTabs = (function () {
     h += '<h3>Сценарії</h3><div class="tw"><table class="t"><thead><tr><th>Сценарій</th><th>Параметри</th><th>Зараз</th><th></th></tr></thead><tbody>' +
       SCN.list().map(function (s) {
         return '<tr><td><b>' + esc(s.name) + '</b>' + (s.system ? '<div class="small muted">системний</div>' : '') + '</td><td class="small">' + paramText(s.p) + '</td>' +
-          '<td>' + (counts[s.id] || 0) + ' ауд.</td><td>' + (canS ? '<button class="btn small" data-s-ed="' + s.id + '">✎</button>' : '') + '</td></tr>';
+          '<td>' + (counts[s.id] || 0) + ' ауд.</td><td>' + (canS ? '<button class="btn small" data-s-ed="' + s.id + '" title="Редагувати">' + SK.icon('edit', 'ico sm') + '</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
     if (canS) h += scenarioForm();
 
@@ -220,7 +220,7 @@ SK.adminTabs = (function () {
     /* Симуляція проходу */
     h += '<h3>Симуляція проходу</h3><div class="form-grid"><label>Двері' + D().sel('acDoor', SEC.doors.map(function (d) { return [d.id, d.name]; }), st.accDoor) + '</label>' +
       '<label>Відбиток' + D().sel('acUser', [['', 'Невідомий відбиток']].concat(users.map(function (u) { return [u.id, u.id + ' · ' + SEC.GROUPS[u.group].name + (u.prints ? '' : ' (без біометрії)')]; })), st.accUser) + '</label></div>' +
-      '<div class="row" style="margin-top:8px"><button class="btn small primary" id="acTry">☝ Прикласти палець</button><span class="small muted">Права перевіряються за групою, зоною й часом; студентам — лише заброньовані аудиторії.</span></div>';
+      '<div class="row" style="margin-top:8px"><button class="btn small primary" id="acTry">' + SK.icon('finger', 'ico sm') + 'Прикласти палець</button><span class="small muted">Права перевіряються за групою, зоною й часом; студентам — лише заброньовані аудиторії.</span></div>';
 
     /* Двері */
     h += '<h3>Двері та режими</h3><div class="tw"><table class="t"><tbody>' + SEC.doors.map(function (d) {
@@ -244,7 +244,7 @@ SK.adminTabs = (function () {
     h += '<h3>Користувачі (знеособлено)</h3><div class="row" style="margin-bottom:6px">' + D().sel('acGroup', [['', 'Усі групи']].concat(Object.keys(SEC.GROUPS).map(function (k) { return [k, SEC.GROUPS[k].name]; })), st.accGroup) +
       (canA ? '<button class="btn small" id="acAdd">+ Користувач</button>' : '') + '</div><div class="tw"><table class="t"><tbody>' + ul.map(function (u) {
         return '<tr' + (u.active ? '' : ' style="opacity:.5"') + '><td><b>' + u.id + '</b><div class="small muted">' + esc(SEC.GROUPS[u.group].name) + '</div></td>' +
-          '<td class="small">' + (u.prints ? '☝ ' + u.prints + ' відбит.' : '<span class="lvl warn">немає</span>') + (u.alt ? '<br>+ ' + esc(u.alt) : '') + '</td>' +
+          '<td class="small">' + (u.prints ? SK.icon('finger', 'ico sm') + ' ' + u.prints + ' відбит.' : '<span class="lvl warn">немає</span>') + (u.alt ? '<br>+ ' + esc(u.alt) : '') + '</td>' +
           '<td>' + (canA ? '<button class="btn small" data-en="' + u.id + '"' + (u.prints >= 2 ? ' disabled' : '') + '>Зареєструвати</button><button class="btn small" data-rv="' + u.id + '">Видалити шаблон</button>' +
             '<button class="btn small" data-bl="' + u.id + '">' + (u.active ? 'Блок.' : 'Розблок.') + '</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -291,16 +291,16 @@ SK.adminTabs = (function () {
     var r = B.room(st.ctlRoom || D().ui.room || 'А-201') || B.room('А-201'); st.ctlRoom = r.id;
     var fs = FL.summary(n), ps = PW.state(n), alarms = SEC.active().filter(function (e) { return e.sev === 'critical' || e.sev === 'serious'; }).length;
     var offs = CT.offList(), offIds = Object.keys(offs);
-    var h = '<div class="row"><h2 class="grow">Диспетчерська · А-001</h2><button class="btn small" data-ct="admRoom" title="Показати адміністративне приміщення на карті">◎ А-001 на карті</button></div><div class="small muted">Робоче місце оператора: стан корпусу, ручне керування пристроями й дверима, журнал команд.</div>';
+    var h = '<div class="row"><h2 class="grow">Диспетчерська · А-001</h2><button class="btn small" data-ct="admRoom" title="Показати адміністративне приміщення на карті">' + SK.icon('target', 'ico sm') + 'А-001 на карті</button></div><div class="small muted">Робоче місце оператора: стан корпусу, ручне керування пристроями й дверима, журнал команд.</div>';
     h += '<div class="kpis">' + D().kpi(alarms, 'тривог', alarms ? 'var(--bad)' : null) + D().kpi(fs.any, 'несправностей', fs.any ? 'var(--warn)' : null) +
       D().kpi(offIds.length, 'вимкнено вручну') + D().kpi('<span class="lvl ' + (ps.grid ? 'good' : ps.genOn ? 'warn' : 'bad') + '">' + esc(ps.grid ? 'мережа' : ps.genOn ? 'ДГУ' : 'ДБЖ') + '</span>', 'живлення') + '</div>';
-    h += '<h3>Як проходить команда</h3><div class="chain">' + ['👤 Оператор А-001', '🗄 Сервер А-002', '📡 MQTT …/set', '⚡ Шафа ЩА', '🔌 Контролер · порт', '💡 Пристрій', '✓ Підтвердження ≤ 2 с']
-      .map(function (x) { return '<span>' + x + '</span>'; }).join('<i>→</i>') + '</div>';
+    h += '<h3>Як проходить команда</h3><div class="chain">' + [['user', 'Оператор А-001'], ['server', 'Сервер А-002'], ['wifi', 'MQTT …/set'], ['cabinet', 'Шафа ЩА'], ['chip', 'Контролер · порт'], ['bulb', 'Пристрій'], ['check', 'Підтвердження ≤ 2 с']]
+      .map(function (x) { return '<span>' + SK.icon(x[0], 'ico sm') + ' ' + x[1] + '</span>'; }).join('<i>→</i>') + '</div>';
 
     /* --- Приміщення --- */
     var rooms = B.rooms.slice().sort(function (a, b) { return a.block < b.block ? -1 : a.block > b.block ? 1 : a.floor - b.floor || (a.id < b.id ? -1 : 1); });
     h += '<h3>Керування приміщенням</h3><div class="row">' + D().sel('ctRoom', rooms.map(function (x) { return [x.id, x.id + ' · ' + x.name]; }), r.id) +
-      '<button class="btn small" data-ct="map" title="Показати на карті">◎</button>' + (SEC.can('scenario') ? '<button class="btn small" data-ct="model" title="Модель кімнати">🔍</button>' : '') + '</div>';
+      '<button class="btn small" data-ct="map" title="Показати на карті">' + SK.icon('target', 'ico sm') + '</button>' + (SEC.can('scenario') ? '<button class="btn small" data-ct="model" title="Модель кімнати">' + SK.icon('cube', 'ico sm') + '</button>' : '') + '</div>';
     var v = SK.i3.read(r.id, n), devs = DEV.roomDevices(r).filter(CT.controllable);
     h += '<div class="small muted" style="margin:4px 0">' + esc(B.blockById(r.block).name) + ', поверх ' + r.floor + ' · сценарій «' + esc(v.scName) + '» · ' + v.people + ' ос. · ' + v.temp + ' °C</div>';
     if (devs.length) {
@@ -392,8 +392,8 @@ SK.adminTabs = (function () {
       (s.serverDown ? ' <b>Сервер вимкнено коректно</b>; контролери працюють автономно.' : '') + '</div>';
 
     if (canP) {
-      h += '<h3>Імітація</h3><div class="row">' + (s.grid ? '<button class="btn small danger" id="pwOff">⚡ Зникла мережа</button>' : '<button class="btn small primary" id="pwOn">✓ Відновити мережу</button>') +
-        '<button class="btn small" id="pwTest"' + (s.grid ? '' : ' disabled') + '>▶ Тестовий пуск ДГУ (15 хв)</button></div>' +
+      h += '<h3>Імітація</h3><div class="row">' + (s.grid ? '<button class="btn small danger" id="pwOff">' + SK.icon('bolt', 'ico sm') + 'Зникла мережа</button>' : '<button class="btn small primary" id="pwOn">✓ Відновити мережу</button>') +
+        '<button class="btn small" id="pwTest"' + (s.grid ? '' : ' disabled') + '>' + SK.icon('play', 'ico sm') + 'Тестовий пуск ДГУ (15 хв)</button></div>' +
         '<div class="small muted" style="margin:4px 0">Останній тест ДГУ: ' + (lt ? U.fmtDateTime(new Date(lt)) : 'не проводився') + '. Рекомендовано щотижня.</div>' +
         '<div class="row">' + Object.keys(PW.FAULTS).map(function (k) {
           var on = (SK.store.state.power.faults || {})[k];
@@ -499,10 +499,10 @@ SK.adminTabs = (function () {
     });
     if (f.type === 'dev') {
       var d0 = DEV.device(f.id), jb = d0.room ? W.jbox(d0.room) : null;
-      marks.push({ x: d0.x, y: d0.y, z: d0.z + 0.6, text: DEV.KINDS[d0.kind].icon + ' ' + (d0.room || d0.label || d0.id), w: 4, dy: 2.4 });
-      if (jb) marks.push({ x: jb.x, y: jb.y, z: jb.z, text: '📦 ' + jb.id, w: 3.6, dy: 1.0 });
-      marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: '⚡ ' + cab.id + ' · ' + links.filter(function (l) { return l.inst; }).map(function (l) { return l.inst.short + ' ' + l.port; }).join(', '), w: 6, dy: 2.2 });
-    } else marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: '⚡ ' + f.id + ' · ' + links.length + ' ліній', w: 6, dy: 2.2 });
+      marks.push({ x: d0.x, y: d0.y, z: d0.z + 0.6, text: (d0.room || d0.label || d0.id), w: 4, dy: 2.4 });
+      if (jb) marks.push({ x: jb.x, y: jb.y, z: jb.z, text: 'РК ' + jb.id, w: 3.6, dy: 1.0 });
+      marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: cab.id + ' · ' + links.filter(function (l) { return l.inst; }).map(function (l) { return l.inst.short + ' ' + l.port; }).join(', '), w: 6, dy: 2.2 });
+    } else marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: f.id + ' · ' + links.length + ' ліній', w: 6, dy: 2.2 });
       Object.keys(rooms).forEach(function (rid) { var rr = B.room(rid); marks.push({ x: (rr.x0 + rr.x1) / 2, y: (rr.y0 + rr.y1) / 2, z: rr.z0 + rr.h, text: rid, w: 3, dy: 0.6 }); });
     D().setDevCats(null);
     if (!cab.territory) D().setFloorBtn(cab.floor);
@@ -529,14 +529,14 @@ SK.adminTabs = (function () {
   function focusCard() {
     var f = st.focus; if (!f) return '<div class="note">Натисніть порт у схемі шафи, рядок таблиці чи маркер на карті — на плані залишиться лише цей елемент, його приміщення і траса кабелю. ' +
       'Картка пристрою відкриється поверх карти — там стан, підключення, кнопка ручного вимкнення та імітація несправностей.</div>';
-    var n = D().now(), h = '<div class="card focus-card" id="wFocus"><div class="row"><b class="grow">Виділено</b><button class="btn small" data-wf="clear">✕ Показати все</button></div>';
+    var n = D().now(), h = '<div class="card focus-card" id="wFocus"><div class="row"><b class="grow">Виділено</b><button class="btn small" data-wf="clear">' + SK.icon('x', 'ico sm') + 'Показати все</button></div>';
     if (f.type === 'dev') {     // подробиці — у єдиній плаваючій картці пристрою на карті
       var d = DEV.device(f.id), s = DS.state(d, n), inst0 = d.conn[0] && d.conn[0].inst;
       return '<div class="focus-bar" id="wFocus"><span class="small muted">Виділено</span><b>' + DEV.KINDS[d.kind].icon + ' ' + esc(d.label || d.name) + '</b>' +
         '<span class="lvl ' + DS.STATUS[s.status].lvl + ' small">' + DS.STATUS[s.status].name + '</span><span class="grow"></span>' +
         '<button class="btn small" data-wf="card" title="Відкрити картку пристрою">Картка</button>' +
         (inst0 ? '<button class="btn small" data-wf="inst" data-inst="' + esc(inst0.id) + '" title="Усі лінії цього контролера">Усі лінії ' + esc(inst0.short) + '</button>' : '') +
-        '<button class="btn small" data-wf="clear">✕ Показати все</button></div>';
+        '<button class="btn small" data-wf="clear">' + SK.icon('x', 'ico sm') + 'Показати все</button></div>';
     } else {
       var i = W.instances(st.wCab).filter(function (x) { return x.id === f.id; })[0], rooms = {}, cs = FL.ctrlState(i, n);
       i.ports.forEach(function (l) { if (l.device.room) rooms[l.device.room] = 1; });
@@ -579,7 +579,7 @@ SK.adminTabs = (function () {
       var x = PW.cabState(c.id, n), bad = !x.online || !x.uplink ? ' ⛔' : !x.feedOk || x.upsFault ? ' ⚠' : '';
       return [c.id, c.id + ' · ' + (c.territory ? 'територія' : B.blockById(c.block).name + ', поверх ' + c.floor) + bad]; }), cab.id) +
       '<button class="btn small" id="wShow" title="Усі лінії шафи на плані">Усі лінії шафи</button><button class="btn small" id="wHide">Очистити план</button>' +
-      '<button class="btn small" id="wDoc" title="Опис усіх елементів і їх комутації у форматі Word">📄 .docx</button></div>';
+      '<button class="btn small" id="wDoc" title="Опис усіх елементів і їх комутації у форматі Word">' + SK.icon('doc', 'ico sm') + '.docx</button></div>';
 
     /* Стан шафи та імітації рівня шафи */
     var cl = !cs.online ? 'bad' : !cs.feedOk || cs.upsFault || !cs.uplink ? 'warn' : 'good';

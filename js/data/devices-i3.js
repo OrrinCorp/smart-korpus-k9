@@ -22,50 +22,56 @@ SK.devicesI3 = (function () {
   };
 
   var CATS = {
-    sensors:   { name: 'Датчики',              color: 0x0f9d8a, css: '#0f9d8a' },
-    control:   { name: 'Світло й клімат',      color: 0x3f7fd0, css: '#3f7fd0' },
-    boards:    { name: 'Онлайн-дошки й табло', color: 0x7b4fd0, css: '#7b4fd0' },
-    access:    { name: 'Доступ за відбитками', color: 0x8d6e63, css: '#8d6e63' },
-    safety:    { name: 'Безпека',              color: 0x546e7a, css: '#546e7a' },
-    infra:     { name: 'Мережа, шафи, сервер', color: 0x5c6bc0, css: '#5c6bc0' },
-    power:     { name: 'Резервне живлення',    color: 0x6b7a1e, css: '#6b7a1e' },
-    territory: { name: 'Територія',            color: 0x2e8b3e, css: '#2e8b3e' }
+    sensors:   { name: 'Датчики',              color: 0x2dd4bf, css: '#2dd4bf' },
+    control:   { name: 'Світло й клімат',      color: 0x60a5fa, css: '#60a5fa' },
+    boards:    { name: 'Онлайн-дошки й табло', color: 0xa78bfa, css: '#a78bfa' },
+    access:    { name: 'Доступ за відбитками', color: 0xf472b6, css: '#f472b6' },
+    safety:    { name: 'Безпека',              color: 0x94a3b8, css: '#94a3b8' },
+    infra:     { name: 'Мережа, шафи, сервер', color: 0x818cf8, css: '#818cf8' },
+    power:     { name: 'Резервне живлення',    color: 0xa3e635, css: '#a3e635' },
+    territory: { name: 'Територія',            color: 0x4ade80, css: '#4ade80' }
   };
 
   var KINDS = {
-    pir:       { cat: 'sensors', icon: '👁', name: 'PIR-датчик присутності' },
-    temp:      { cat: 'sensors', icon: '🌡', name: 'Термодатчик 1-Wire' },
-    co2:       { cat: 'sensors', icon: '💨', name: 'Датчик CO₂/T/RH (NDIR, Modbus)' },
-    light:     { cat: 'control', icon: '💡', name: 'Група LED-освітлення (димована)' },
-    hvac:      { cat: 'control', icon: '❄', name: 'Фанкойл / приплив (0–10 В)' },
-    blinds:    { cat: 'control', icon: '🪟', name: 'Електропривод жалюзі' },
-    sockets:   { cat: 'control', icon: '🔌', name: 'Керована розеткова група (ПК, проєктор)' },
-    board:     { cat: 'boards',  icon: '🖥', name: 'Інтерактивна панель (онлайн-дошка)' },
-    signage:   { cat: 'boards',  icon: '📋', name: 'Інфотабло розкладу' },
-    panel:     { cat: 'boards',  icon: '📱', name: 'Настінна панель сценаріїв (i3 Home)' },
-    finger:    { cat: 'access',  icon: '☝', name: 'Біометричний зчитувач відбитків + електрозамок' },
-    turnstile: { cat: 'access',  icon: '🚧', name: 'Турнікет з біометричним зчитувачем' },
-    door:      { cat: 'safety',  icon: '🚪', name: 'Геркон дверей' },
-    leak:      { cat: 'safety',  icon: '💧', name: 'Датчик протікання' },
-    vape:      { cat: 'safety',  icon: '🚭', name: 'Детектор диму/вейпу' },
-    camera:    { cat: 'safety',  icon: '📷', name: 'IP-камера (концепт)' },
-    wifi:      { cat: 'infra',   icon: '📶', name: 'Точка доступу Wi-Fi (PoE)' },
-    cabinet:   { cat: 'infra',   icon: '⚡', name: 'Шафа автоматики ЩА' },
-    server:    { cat: 'infra',   icon: '🗄', name: 'Сервер «Розумного корпусу» + MQTT-брокер' },
-    accsrv:    { cat: 'infra',   icon: '🔐', name: 'Сервер доступу (біометрія)' },
-    core:      { cat: 'infra',   icon: '🔀', name: 'Ядро мережі (комутатор L3)' },
-    console:   { cat: 'infra',   icon: '🖥', name: 'Робоче місце диспетчера (відеостіна)' },
-    upsc:      { cat: 'power',   icon: '🔋', name: 'Центральний онлайн-ДБЖ 20 кВА' },
-    upscab:    { cat: 'power',   icon: '🔋', name: 'DIN-ДБЖ 24 В шафи ЩА' },
-    meter:     { cat: 'power',   icon: '📟', name: 'Облік електроенергії поверху (датчики струму)' },
-    ats:       { cat: 'power',   icon: '🔁', name: 'АВР / ГРЩ' },
-    gen:       { cat: 'power',   icon: '⛽', name: 'ДГУ 60 кВА' },
-    parking:   { cat: 'territory', icon: '🅿', name: 'Шлюз датчиків паркомісць' },
-    bench:     { cat: 'territory', icon: '🪑', name: 'Розумна лавка (USB, підсвітка)' },
-    exhaust:   { cat: 'control', icon: '🌀', name: 'Витяжний вентилятор кімнати для куріння (0–10 В)' },
-    pm:        { cat: 'sensors', icon: '🌫', name: 'Датчик PM2.5 / диму (Modbus)' },
-    pole:      { cat: 'territory', icon: '🏮', name: 'Вуличне освітлення за PIR' }
+    pir:       { cat: 'sensors', ic: 'pir', emoji: '👁', name: 'PIR-датчик присутності' },
+    temp:      { cat: 'sensors', ic: 'thermo', emoji: '🌡', name: 'Термодатчик 1-Wire' },
+    co2:       { cat: 'sensors', ic: 'co2', emoji: '💨', name: 'Датчик CO₂/T/RH (NDIR, Modbus)' },
+    light:     { cat: 'control', ic: 'bulb', emoji: '💡', name: 'Група LED-освітлення (димована)' },
+    hvac:      { cat: 'control', ic: 'fan', emoji: '❄', name: 'Фанкойл / приплив (0–10 В)' },
+    blinds:    { cat: 'control', ic: 'blinds', emoji: '🪟', name: 'Електропривод жалюзі' },
+    sockets:   { cat: 'control', ic: 'plug', emoji: '🔌', name: 'Керована розеткова група (ПК, проєктор)' },
+    board:     { cat: 'boards',  ic: 'monitor', emoji: '🖥', name: 'Інтерактивна панель (онлайн-дошка)' },
+    signage:   { cat: 'boards',  ic: 'board', emoji: '📋', name: 'Інфотабло розкладу' },
+    panel:     { cat: 'boards',  ic: 'phone', emoji: '📱', name: 'Настінна панель сценаріїв (i3 Home)' },
+    finger:    { cat: 'access',  ic: 'finger', emoji: '☝', name: 'Біометричний зчитувач відбитків + електрозамок' },
+    turnstile: { cat: 'access',  ic: 'turnstile', emoji: '🚧', name: 'Турнікет з біометричним зчитувачем' },
+    door:      { cat: 'safety',  ic: 'door', emoji: '🚪', name: 'Геркон дверей' },
+    leak:      { cat: 'safety',  ic: 'drop', emoji: '💧', name: 'Датчик протікання' },
+    vape:      { cat: 'safety',  ic: 'smoke', emoji: '🚭', name: 'Детектор диму/вейпу' },
+    camera:    { cat: 'safety',  ic: 'camera', emoji: '📷', name: 'IP-камера (концепт)' },
+    wifi:      { cat: 'infra',   ic: 'wifi', emoji: '📶', name: 'Точка доступу Wi-Fi (PoE)' },
+    cabinet:   { cat: 'infra',   ic: 'cabinet', emoji: '⚡', name: 'Шафа автоматики ЩА' },
+    server:    { cat: 'infra',   ic: 'server', emoji: '🗄', name: 'Сервер «Розумного корпусу» + MQTT-брокер' },
+    accsrv:    { cat: 'infra',   ic: 'lock', emoji: '🔐', name: 'Сервер доступу (біометрія)' },
+    core:      { cat: 'infra',   ic: 'network', emoji: '🔀', name: 'Ядро мережі (комутатор L3)' },
+    console:   { cat: 'infra',   ic: 'monitor', emoji: '🖥', name: 'Робоче місце диспетчера (відеостіна)' },
+    upsc:      { cat: 'power',   ic: 'battery', emoji: '🔋', name: 'Центральний онлайн-ДБЖ 20 кВА' },
+    upscab:    { cat: 'power',   ic: 'battery', emoji: '🔋', name: 'DIN-ДБЖ 24 В шафи ЩА' },
+    meter:     { cat: 'power',   ic: 'gauge', emoji: '📟', name: 'Облік електроенергії поверху (датчики струму)' },
+    ats:       { cat: 'power',   ic: 'refresh', emoji: '🔁', name: 'АВР / ГРЩ' },
+    gen:       { cat: 'power',   ic: 'generator', emoji: '⛽', name: 'ДГУ 60 кВА' },
+    parking:   { cat: 'territory', ic: 'car', emoji: '🅿', name: 'Шлюз датчиків паркомісць' },
+    bench:     { cat: 'territory', ic: 'bench', emoji: '🪑', name: 'Розумна лавка (USB, підсвітка)' },
+    exhaust:   { cat: 'control', ic: 'fan', emoji: '🌀', name: 'Витяжний вентилятор кімнати для куріння (0–10 В)' },
+    pm:        { cat: 'sensors', ic: 'wind', emoji: '🌫', name: 'Датчик PM2.5 / диму (Modbus)' },
+    pole:      { cat: 'territory', ic: 'pole', emoji: '🏮', name: 'Вуличне освітлення за PIR' }
   };
+
+  /* Іконка пристрою: SVG з єдиного набору (js/ui/icons.js); emoji — запасний варіант без icons.js */
+  Object.keys(KINDS).forEach(function (k) {
+    var K = KINDS[k];
+    K.icon = SK.icon ? SK.icon(K.ic, 'ico dev-ico') : K.emoji;
+  });
 
   /* ---------- Шафи автоматики: по одній на поверх блоку ---------- */
   var CAB_POS = { A: { x: -16.5, y: -7 }, B: { x: 29.4, y: 19.5 }, C: { x: 1.2, y: 11.5 }, T: { x: 40, y: 43 } };

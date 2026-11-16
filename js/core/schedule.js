@@ -235,9 +235,9 @@ SK.schedule = (function () {
   }
 
   var STATUS = {
-    free:   { name: 'Вільна', color: 0x5cb87a, css: 'free' },
-    busy:   { name: 'Зайнята', color: 0xe06b6b, css: 'busy' },
-    booked: { name: 'Заброньована', color: 0x6295dd, css: 'booked' },
+    free:   { name: 'Вільна', color: 0x3ecf8e, css: 'free' },
+    busy:   { name: 'Зайнята', color: 0xf0606a, css: 'busy' },
+    booked: { name: 'Заброньована', color: 0x9b8cff, css: 'booked' },
     na:     { name: 'Не бронюється', color: 0xb9c2c8, css: 'na' }
   };
 

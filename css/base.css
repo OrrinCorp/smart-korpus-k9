@@ -1,42 +1,34 @@
 /* Розумний корпус К9 — спільні стилі (панель і студентський додаток). */
+/* Палітра. Акцент — бірюзово-блакитний; кольори статусів (зелений / червоний / фіолетовий / бурштиновий)
+   навмисно не збігаються з акцентом, щоб «кнопка» ніколи не читалася як «стан». */
 :root {
-  --bg: #eef2f4; --panel: #ffffff; --panel-2: #f6f8f9; --fg: #1b2830; --fg-2: #4b5b66; --muted: #7a8a94;
-  --line: #d5dde2; --accent: #1f6fb2; --accent-fg: #ffffff; --accent-soft: #e3effa;
-  --free: #2e9e5b; --busy: #d64545; --booked: #3b7dd8; --na: #b9c2c8;
-  --good: #2e9e5b; --warn: #d99a1e; --bad: #d64545; --info: #3b7dd8;
-  --s1: #1f6fb2; --s2: #8a97a1;
-  --demo: #8a4fd0;
-  --radius: 10px; --shadow: 0 1px 2px rgba(20, 40, 50, .06), 0 4px 14px rgba(20, 40, 50, .06);
-  --viewer-bg: linear-gradient(180deg, #e6eef3 0%, #f3f6f8 60%, #eef2ef 100%);
+  --bg: #eef3f6; --panel: #ffffff; --panel-2: #f4f7f9; --fg: #14212b; --fg-2: #46586a; --muted: #7a8b99;
+  --line: #d9e2e8; --accent: #0e8aa6; --accent-fg: #ffffff; --accent-soft: #e0f4f8;
+  --free: #16a06a; --busy: #dc3d47; --booked: #7357e0; --na: #b4c0c9;
+  --good: #16a06a; --warn: #c98a12; --bad: #dc3d47; --info: #0e8aa6;
+  --s1: #0e8aa6; --s2: #8a97a1;
+  --demo: #7357e0;
+  --radius: 12px; --shadow: 0 1px 2px rgba(20, 40, 50, .06), 0 6px 20px rgba(20, 40, 50, .08);
+  --glass: rgba(255, 255, 255, .86); --glass-line: rgba(20, 40, 60, .10);
+  --viewer-bg: radial-gradient(120% 90% at 60% 30%, #f7fafc 0%, #e8eef2 70%, #dfe7ec 100%);
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-  --bg: #050607; --panel: #0e1113; --panel-2: #161a1d; --fg: #e6ebee; --fg-2: #b4bec5; --muted: #7c878e;
-  --line: #252b30; --accent: #4d9be0; --accent-fg: #050607; --accent-soft: #10243a;
-  --free: #4cb877; --busy: #e46a6a; --booked: #5b93e0; --na: #4a5359;
-  --good: #4cb877; --warn: #e2ad3d; --bad: #e46a6a; --info: #5b93e0;
-  --s1: #4d9be0; --s2: #6f7b84; --demo: #b48be8;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 4px 16px rgba(0, 0, 0, .5);
-  --viewer-bg: linear-gradient(180deg, #0b0f12 0%, #07090b 60%, #050607 100%);
-  color-scheme: dark;
-  }
-}
 :root[data-theme="dark"] {
-  /* Чорна тема: майже чорне тло, панелі на півтону світліші, приглушені акценти */
-  --bg: #050607; --panel: #0e1113; --panel-2: #161a1d; --fg: #e6ebee; --fg-2: #b4bec5; --muted: #7c878e;
-  --line: #252b30; --accent: #4d9be0; --accent-fg: #050607; --accent-soft: #10243a;
-  --free: #4cb877; --busy: #e46a6a; --booked: #5b93e0; --na: #4a5359;
-  --good: #4cb877; --warn: #e2ad3d; --bad: #e46a6a; --info: #5b93e0;
-  --s1: #4d9be0; --s2: #6f7b84; --demo: #b48be8;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 4px 16px rgba(0, 0, 0, .5);
-  --viewer-bg: linear-gradient(180deg, #0b0f12 0%, #07090b 60%, #050607 100%);
+  /* Темна тема «диспетчерська»: глибокий синьо-сірий фон, скляні панелі, яскраві лише статуси */
+  --bg: #0a0f14; --panel: #111922; --panel-2: #17212c; --fg: #e4edf3; --fg-2: #a7b7c4; --muted: #6c7f8f;
+  --line: #22303d; --accent: #22c3dd; --accent-fg: #04141a; --accent-soft: rgba(34, 195, 221, .13);
+  --free: #3ecf8e; --busy: #f0606a; --booked: #9b8cff; --na: #455463;
+  --good: #3ecf8e; --warn: #f2b84b; --bad: #f0606a; --info: #22c3dd;
+  --s1: #22c3dd; --s2: #6c7f8f; --demo: #9b8cff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 30px rgba(0, 0, 0, .45);
+  --glass: rgba(14, 21, 29, .82); --glass-line: rgba(140, 190, 220, .12);
+  --viewer-bg: radial-gradient(120% 90% at 55% 25%, #142130 0%, #0b121a 60%, #070b10 100%);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--fg); font: 14px/1.45 "Segoe UI", Roboto, Arial, sans-serif; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, Arial, sans-serif; }
 [hidden] { display: none !important; }
 h1, h2, h3 { margin: 0; line-height: 1.25; }
 h2 { font-size: 17px; } h3 { font-size: 14px; margin: 14px 0 8px; color: var(--fg-2); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
@@ -125,3 +117,12 @@ table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: va
 .legend-map .k i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .gradient { height: 8px; border-radius: 4px; width: 140px; }
 .lvl.off { color: var(--muted); } .lvl.off::before { background: var(--muted); }
+
+/* SVG-іконки (js/ui/icons.js) */
+.ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -4px; }
+.ico.sm { width: 14px; height: 14px; vertical-align: -2px; }
+.ico.lg { width: 22px; height: 22px; }
+.btn .ico { margin-right: 2px; }
+.icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid transparent; background: none; color: var(--fg-2); padding: 0; }
+.icon-btn:hover { background: var(--panel-2); color: var(--fg); }
+.icon-btn.on { color: var(--accent); background: var(--accent-soft); }

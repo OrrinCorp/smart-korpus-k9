@@ -31,11 +31,11 @@ SK.dashboard = (function () {
         if (!d && ui.tab === 'wiring' && SK.adminTabs.devFocused()) { SK.adminTabs.clearFocus(); viewer.setFocus(null); ui.device = null; renderPanel(); }
         openDevice(d, back); },
       onOpenDevice: function (d) { ui.pendingBack = ui.devBack; showDevice(d); },   // подвійний клік по іконці
-      spotColor: function (s) { return DS.spotTaken(s, now()) ? 0xd96b6b : s.mgn ? 0x8fb8e8 : 0x8fd19e; },
+      spotColor: function (s) { var dk = SK.theme.isDark(); return DS.spotTaken(s, now()) ? (dk ? 0x3a4a5a : 0xaab6c0) : s.mgn ? 0x22c3dd : 0x3ecf8e; },   // зайняте місце — нейтральне (це не тривога)
       onOpenRoom: function (r) { if (role() === 'guest') { U.toast('Модель кімнати доступна відповідальним особам і адміністратору', 'warn'); return; } SK.RoomView.open(r.id); },
       defaultModelUrl: 'assets/models/korpus9.glb'
     });
-    initDevLayer(); initCardDrag();
+    initShell(); initDevLayer(); initCardDrag();
     /* Поки кнопку миші/палець затиснуто на картці чи панелі, періодичне оновлення їх не чіпає —
        інакше елемент під курсором замінюється і клік губиться */
     ['#roomCard', '#panel'].forEach(function (s) { $(s).addEventListener('pointerdown', function () { pressing = true; }); });
@@ -51,7 +51,7 @@ SK.dashboard = (function () {
     fl.addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
       U.$all('button', fl).forEach(function (x) { x.classList.toggle('on', x === b); });
-      if (viewer.isPlan() && !b.dataset.f) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); }
+      if (viewer.isPlan() && !b.dataset.f) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); $('#view3d').classList.add('on'); }
       viewer.setFloor(b.dataset.f ? +b.dataset.f : null);
     });
 
@@ -59,7 +59,7 @@ SK.dashboard = (function () {
     cm.innerHTML = Object.keys(CM).map(function (k) { return '<option value="' + k + '">' + CM[k].name + '</option>'; }).join('');
     cm.addEventListener('change', function () { ui.colorMode = cm.value; viewer.refresh(); renderLegend(); });
     $('#homeBtn').addEventListener('click', function () {
-      if (viewer.isPlan()) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); }
+      if (viewer.isPlan()) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); $('#view3d').classList.add('on'); }
       if (viewer.getIsolated()) viewer.isolate(null);
       if (viewer.hasFocus()) { viewer.setFocus(null); SK.adminTabs.clearFocus(); if (ui.tab === 'wiring') renderPanel(); }
       setFloorBtn(''); viewer.setFloor(null, true); viewer.home();
@@ -67,7 +67,7 @@ SK.dashboard = (function () {
     $('#planBtn').addEventListener('click', function (e) {
       var on = !viewer.isPlan();
       if (on && ui.expl) { ui.expl = false; $('#explBtn').classList.remove('on'); viewer.setExplode(false); }
-      var f = viewer.setPlan(on); e.currentTarget.classList.toggle('on', on);
+      var f = viewer.setPlan(on); e.currentTarget.classList.toggle('on', on); $('#view3d').classList.toggle('on', !on);
       if (on) setFloorBtn(f);
     });
     /* Пошук приміщення на карті */
@@ -78,7 +78,7 @@ SK.dashboard = (function () {
       var r = B.room(id); setFloorBtn(r.floor); viewer.setFloor(r.floor); viewer.select(id); viewer.focusRoom(id);
     });
     $('#lblBtn').addEventListener('click', function (e) { ui.lbl = !ui.lbl; e.currentTarget.classList.toggle('on', ui.lbl); viewer.setLabelsAll(ui.lbl); });
-    $('#explBtn').addEventListener('click', function (e) { if (viewer.isPlan()) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); } ui.expl = !ui.expl; e.currentTarget.classList.toggle('on', ui.expl); if (ui.expl) { setFloorBtn(''); viewer.setFloor(null); } viewer.setExplode(ui.expl); });
+    $('#explBtn').addEventListener('click', function (e) { if (viewer.isPlan()) { viewer.setPlan(false); $('#planBtn').classList.remove('on'); $('#view3d').classList.add('on'); } ui.expl = !ui.expl; e.currentTarget.classList.toggle('on', ui.expl); if (ui.expl) { setFloorBtn(''); viewer.setFloor(null); } viewer.setExplode(ui.expl); });
 
     $('#panel').addEventListener('click', function (e) {
       var g = e.target.closest('[data-goto]'); if (g) { e.preventDefault(); setTab(g.dataset.goto); }
@@ -125,40 +125,100 @@ SK.dashboard = (function () {
     setInterval(tick, 2000);
   }
 
-  /* ---------- Навігація: 7 груп і підвкладки ---------- */
+  /* ---------- Навігація: меню розділів (виїжджає зліва) + плаваюча панель справа ---------- */
   var NAV = [
-    { id: 'home', icon: '⌂', name: 'Огляд', tabs: ['overview'] },
-    { id: 'ctl', icon: '🎛', name: 'Керування', title: 'Ручне керування з диспетчерської та автоматичні сценарії', tabs: ['control', 'scenarios'] },
-    { id: 'sched', icon: '▦', name: 'Розклад', tabs: ['rooms', 'events'] },
-    { id: 'climate', icon: '☀', name: 'Клімат', title: 'Температура, повітря, освітлення', tabs: ['comfort'] },
-    { id: 'sec', icon: '🛡', name: 'Безпека', tabs: ['security', 'access'] },
-    { id: 'energy', icon: '⚡', name: 'Енергія', tabs: ['energy', 'power'] },
-    { id: 'infra', icon: '🏗', name: 'Техніка', title: 'Пристрої, комутація, територія', tabs: ['equipment', 'wiring', 'territory'] },
-    { id: 'cfg', icon: '⚙', name: 'Система', title: 'Налаштування прототипу', tabs: ['settings'] }
+    { id: 'home', icon: 'home', name: 'Огляд', sub: 'Стан корпусу одним поглядом', tabs: ['overview'] },
+    { id: 'ctl', icon: 'sliders', name: 'Керування', sub: 'Диспетчерська й автоматичні сценарії', tabs: ['control', 'scenarios'] },
+    { id: 'sched', icon: 'calendar', name: 'Розклад', sub: 'Аудиторії, бронювання, події', tabs: ['rooms', 'events'] },
+    { id: 'climate', icon: 'thermo', name: 'Клімат', sub: 'Температура, CO₂, освітлення', tabs: ['comfort'] },
+    { id: 'sec', icon: 'shield', name: 'Безпека', sub: 'Сповіщення й доступ за відбитком', tabs: ['security', 'access'] },
+    { id: 'energy', icon: 'bolt', name: 'Енергія', sub: 'Споживання й резервне живлення', tabs: ['energy', 'power'] },
+    { id: 'infra', icon: 'chip', name: 'Техніка', sub: 'Пристрої, комутація, територія', tabs: ['equipment', 'wiring', 'territory'] },
+    { id: 'cfg', icon: 'gear', name: 'Система', sub: 'Налаштування прототипу', tabs: ['settings'] }
   ];
+  var TAB_ICON = { overview: 'home', control: 'sliders', scenarios: 'layers', rooms: 'calendar', events: 'megaphone', comfort: 'thermo',
+    security: 'bell', access: 'finger', energy: 'chart', power: 'battery', equipment: 'radar', wiring: 'cable', territory: 'car', settings: 'gear' };
+  function tabName(t) { var b = document.querySelector('#tabs button[data-tab="' + t + '"]'); return b ? b.firstChild.textContent.trim() : t; }
   function groupOf(t) { for (var i = 0; i < NAV.length; i++) if (NAV[i].tabs.indexOf(t) >= 0) return NAV[i].id; return 'home'; }
+  function navGroup(id) { return NAV.filter(function (x) { return x.id === id; })[0]; }
+  /* Іконки в статичній розмітці: <span data-i="cube"></span> */
+  function paintIcons(root) { U.$all('[data-i]', root || document).forEach(function (el) { if (!el.firstChild) el.innerHTML = SK.icon(el.dataset.i); }); }
+  function setDrawer(open) {
+    document.body.classList.toggle('drawer-open', open);
+    $('#scrim').hidden = !open; $('#drawer').setAttribute('aria-hidden', String(!open)); $('#menuBtn').setAttribute('aria-expanded', String(open));
+  }
+  function setPanelOpen(open) {
+    ui.panelClosed = !open; document.body.classList.toggle('panel-closed', !open); $('#panelOpen').hidden = open;
+    syncInset();
+  }
+  /* Карта знає, скільки місця справа займає панель, і центрує корпус у видимій частині */
+  function syncInset() {
+    if (!viewer || !viewer.setRightInset) return;
+    var wide = !window.matchMedia('(max-width: 900px)').matches, pnl = $('#sidePanel');
+    viewer.setRightInset(wide && !ui.panelClosed ? pnl.offsetWidth + 12 : 0);
+  }
+  function initShell() {
+    paintIcons();
+    $('#menuBtn').innerHTML = SK.icon('menu', 'ico lg');
+    $('#drawerClose').innerHTML = SK.icon('x');
+    $('#panelMin').innerHTML = SK.icon('chevR');
+    $('#clockSet').innerHTML = SK.icon('clock');
+    U.$all('.role-ico').forEach(function (e) { e.innerHTML = SK.icon('user', 'ico sm'); });
+    $('#menuBtn').addEventListener('click', function () { setDrawer(!document.body.classList.contains('drawer-open')); });
+    $('#drawerClose').addEventListener('click', function () { setDrawer(false); });
+    $('#scrim').addEventListener('click', function () { setDrawer(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.body.classList.contains('drawer-open')) setDrawer(false); });
+    $('#panelMin').addEventListener('click', function () { setPanelOpen(false); });
+    $('#tourBtn').addEventListener('click', function () { setDrawer(false); });
+    $('#panelOpen').addEventListener('click', function () { setPanelOpen(true); });
+    $('#sysPill').addEventListener('click', function () { setTab('overview'); setPanelOpen(true); });
+    $('#view3d').addEventListener('click', function () { if (viewer.isPlan()) $('#planBtn').click(); });
+    if (window.matchMedia('(max-width: 900px)').matches) setPanelOpen(false); else syncInset();
+    window.addEventListener('resize', syncInset);
+  }
   function renderNav() {
     var g = $('#tabGroups'), cur = groupOf(ui.tab);
     if (!g.dataset.init) {
       g.dataset.init = 1;
-      g.innerHTML = NAV.map(function (n) {
-        return '<button data-group="' + n.id + '" title="' + (n.title || n.name) + '"><span class="gi">' + n.icon + '</span><span class="gl">' + n.name + '</span>' +
-          (n.id === 'sec' ? '<span class="cnt" id="grpSecCnt" hidden></span>' : '') + '</button>';
-      }).join('');
       g.addEventListener('click', function (e) {
-        var b = e.target.closest('[data-group]'); if (!b) return;
-        var n = NAV.filter(function (x) { return x.id === b.dataset.group; })[0];
-        var last = ui.lastIn[n.id];
-        setTab(last && tabAllowed(last) ? last : n.tabs.filter(tabAllowed)[0]);
+        var b = e.target.closest('[data-navtab]'); if (!b) return;
+        setTab(b.dataset.navtab); setPanelOpen(true); setDrawer(false);
       });
     }
-    U.$all('[data-group]', g).forEach(function (b) {
-      var n = NAV.filter(function (x) { return x.id === b.dataset.group; })[0];
-      b.hidden = !n.tabs.some(tabAllowed); b.classList.toggle('on', n.id === cur);
-    });
-    var tabs = NAV.filter(function (x) { return x.id === cur; })[0].tabs.filter(tabAllowed);
+    /* Меню: групи з підрозділами; показуються лише доступні поточній ролі */
+    g.innerHTML = NAV.map(function (n) {
+      var tabs = n.tabs.filter(tabAllowed); if (!tabs.length) return '';
+      if (tabs.length === 1) return '<div class="d-grp">' + item(tabs[0], n.icon, n.name, n.sub) + '</div>';
+      return '<div class="d-grp"><div class="d-grp-t">' + SK.icon(n.icon, 'ico sm') + esc(n.name) + '</div>' +
+        tabs.map(function (t) { return item(t, TAB_ICON[t], tabName(t)); }).join('') + '</div>';
+    }).join('');
+    function item(t, ic, name, sub) {
+      return '<button class="d-item' + (t === ui.tab ? ' on' : '') + '" data-navtab="' + t + '" title="' + esc(sub || name) + '"><span class="d-ico">' + SK.icon(ic) + '</span>' +
+        esc(name) + (t === 'security' ? '<span class="cnt" id="grpSecCnt" hidden></span>' : sub ? '' : '') + '</button>';
+    }
+    /* Шапка панелі та підвкладки групи */
+    var grp = navGroup(cur), tabs = grp.tabs.filter(tabAllowed);
+    $('#phIco').innerHTML = SK.icon(TAB_ICON[ui.tab] || grp.icon, 'ico');
+    $('#phTitle').textContent = tabs.length > 1 ? grp.name : tabName(ui.tab);
+    $('#phSub').textContent = grp.sub;
+    $('#poIco').innerHTML = SK.icon(TAB_ICON[ui.tab] || grp.icon); $('#poTxt').textContent = tabName(ui.tab);
     U.$all('#tabs button[data-tab]').forEach(function (b) { b.hidden = tabs.indexOf(b.dataset.tab) < 0; b.classList.toggle('on', b.dataset.tab === ui.tab); });
     $('#tabs').hidden = tabs.length < 2;
+    updateSecCount();
+  }
+  /* Пігулка стану в шапці: те саме, що «Що потребує уваги» в огляді */
+  function updateSysPill() {
+    var pill = $('#sysPill'); if (!pill) return;
+    var n = now(), G = role() === 'guest', bad = 0, warn = 0;
+    if (!G) {
+      var ps = SK.power.state(n), fs = SK.faults.summary(n), ds = DS.summary(n);
+      if (!ps.grid) bad++;
+      bad += SEC.active().length;
+      warn += fs.cabOff + fs.cabBatt + fs.cabLink + fs.ctrl + ds.fault + ds.alarm;
+    }
+    B.bookableRooms().forEach(function (r) { if (I3.read(r.id, n).co2 >= 1000) warn++; });
+    pill.className = 'sys-pill' + (bad ? ' bad' : warn ? ' warn' : '');
+    pill.querySelector('span').textContent = bad ? 'Тривог: ' + bad : warn ? 'Потребує уваги: ' + warn : 'Усе в нормі';
   }
 
   /* ---------- Що бачить кожна роль ---------- */
@@ -206,7 +266,7 @@ SK.dashboard = (function () {
   }
 
   function tick() {
-    updateClock();
+    updateClock(); updateSysPill();
     viewer.refresh();
     renderRoomCard();
     var n = now(), p = E.power(n);
@@ -218,7 +278,7 @@ SK.dashboard = (function () {
     if (['overview', 'comfort', 'energy', 'territory', 'power', 'wiring'].indexOf(ui.tab) >= 0) renderPanel(true, true);
   }
 
-  function renderAll(soft) { updateClock(); renderPanel(soft); renderRoomCard(); updateSecCount(); }
+  function renderAll(soft) { updateClock(); renderPanel(soft); renderRoomCard(); updateSecCount(); updateSysPill(); }
 
   function updateSecCount() {
     var n = SEC.active().filter(function (e) { return e.status === 'new'; }).length;
@@ -285,7 +345,7 @@ SK.dashboard = (function () {
       '<button class="btn small" data-act="close" aria-label="Закрити">✕</button></div>';
     var G = role() === 'guest';
     var alarm = G ? null : SEC.roomAlarm(r.id);
-    if (alarm) h += '<div class="note" style="border-left-color:var(--bad)"><b>⚠ ' + esc(SEC.TYPES[alarm.type].name) + '</b><br>' + esc(alarm.note) + '</div>';
+    if (alarm) h += '<div class="note" style="border-left-color:var(--bad)"><b>' + SK.icon('alert', 'ico sm') + ' ' + esc(SEC.TYPES[alarm.type].name) + '</b><br>' + esc(alarm.note) + '</div>';
     if (r.bookable) {
       h += '<div style="margin-top:8px"><span class="st ' + S.STATUS[s.status].css + '">' + S.STATUS[s.status].name + '</span>';
       if (s.lesson) h += ' — ' + esc(s.lesson.subject) + ', <b>' + esc(s.lesson.group) + '</b>, ' + esc(s.lesson.teacher) + (s.conflict && !G ? ' <span class="sev critical">конфлікт</span>' : '');
@@ -296,12 +356,12 @@ SK.dashboard = (function () {
     }
     if (r.type !== 'stairs') {
       h += '<div class="metrics">' +
-        metric(v.temp + ' °C', 'Температура') +
-        metric('<span class="lvl ' + SEN.co2Level(v.co2) + '">' + v.co2 + '</span>', 'CO₂, ppm') +
-        metric(v.hum + ' %', 'Вологість') +
-        metric(v.people, 'Людей (PIR)') +
-        metric(v.lightOn ? Math.round(v.lightLevel * 100) + ' %' : 'вимк.', 'Світло') +
-        (G ? metric(esc(v.scName), 'Режим') : metric(U.fmt(v.power / 1000, 2) + ' кВт', 'Потужність')) + '</div>' +
+        metric(v.temp + ' °C', 'Температура', 'thermo') +
+        metric('<span class="lvl ' + SEN.co2Level(v.co2) + '">' + v.co2 + '</span>', 'CO₂, ppm', 'co2') +
+        metric(v.hum + ' %', 'Вологість', 'drop') +
+        metric(v.people, 'Людей (PIR)', 'users') +
+        metric(v.lightOn ? Math.round(v.lightLevel * 100) + ' %' : 'вимк.', 'Світло', 'bulb') +
+        (G ? metric(esc(v.scName), 'Режим', 'layers') : metric(U.fmt(v.power / 1000, 2) + ' кВт', 'Потужність', 'bolt')) + '</div>' +
         '<div class="small muted">' + SEN.co2Text(v.co2) + ' · <span class="demo-badge">симуляція</span>' + (v.fault && !G ? ' · <span class="sev warning">датчик несправний</span>' : '') + '</div>';
     }
     if (r.bookable && !G) {
@@ -335,9 +395,9 @@ SK.dashboard = (function () {
       (cab ? '<div class="muted">Шафа ' + esc(cab.id) + ' · ' + cab.controllers.length + ' контролерів (вкладка «Комутація»)</div>' : '') + '</div></details>';
     /* Дії — одразу під заголовком, однаковий вигляд з карткою пристрою */
     var HEND = 'aria-label="Закрити">✕</button></div>', iso = viewer.getIsolated() === r.id;
-    h = h.replace(HEND, HEND + '<div class="row dc-acts">' + (role() !== 'guest' ? '<button class="btn small primary" data-act="model" title="Окрема 3D-модель приміщення (або подвійний клік на карті)">🔍 Модель кімнати</button>' : '') +
-      '<button class="btn small' + (iso ? ' on' : '') + '" data-act="iso" title="Показати лише це приміщення">' + (iso ? '✕ Показати все' : '◎ Окремо') + '</button>' +
-      '<button class="btn small" data-act="focus" title="Наблизити камеру">⌖ Наблизити</button><button class="btn small" data-act="route" title="Як дійти від входу">➜ Маршрут</button></div>');
+    h = h.replace(HEND, HEND + '<div class="row dc-acts">' + (role() !== 'guest' ? '<button class="btn small primary" data-act="model" title="Окрема 3D-модель приміщення (або подвійний клік на карті)">' + SK.icon('cube', 'ico sm') + 'Модель кімнати</button>' : '') +
+      '<button class="btn small' + (iso ? ' on' : '') + '" data-act="iso" title="Показати лише це приміщення">' + (iso ? SK.icon('x', 'ico sm') + 'Показати все' : SK.icon('target', 'ico sm') + 'Окремо') + '</button>' +
+      '<button class="btn small" data-act="focus" title="Наблизити камеру">' + SK.icon('search', 'ico sm') + 'Наблизити</button><button class="btn small" data-act="route" title="Як дійти від входу">' + SK.icon('compass', 'ico sm') + 'Маршрут</button></div>');
     setCard(box, h, 'room:' + r.id);
     box.onclick = function (e) {
       var pw = e.target.closest('[data-pwr]');
@@ -375,7 +435,9 @@ SK.dashboard = (function () {
   function forgetDetails(prefix) { Object.keys(detOpen).forEach(function (k) { if (k.indexOf(prefix) === 0) delete detOpen[k]; }); }
   function setCard(box, h, key) {
     var b = box.querySelector('.rc-b'), sc = b && cardKey === key && !box.hidden ? b.scrollTop : 0;
-    box.innerHTML = cardHtml(h); box.hidden = false; cardKey = key;
+    box.innerHTML = cardHtml(h).replace('<button class="btn small" data-act="close" aria-label="Закрити">✕</button>', '<button class="icon-btn rc-x" data-act="close" aria-label="Закрити">' + SK.icon('x') + '</button>');
+    box.hidden = false; cardKey = key;
+    box.dataset.st = key.indexOf('room:') === 0 && B.room(key.slice(5)).bookable ? S.status(key.slice(5), now()).status : '';
     keepDetails(box, key);
     b = box.querySelector('.rc-b'); if (b && sc) b.scrollTop = sc;
   }
@@ -409,7 +471,7 @@ SK.dashboard = (function () {
     });
     box.addEventListener('pointerup', function () { if (drag) { drag = null; box.classList.remove('dragging'); } });
   }
-  function metric(v, l) { return '<div class="metric"><div class="v">' + v + '</div><div class="l">' + l + '</div></div>'; }
+  function metric(v, l, ic) { return '<div class="metric">' + (ic ? '<span class="m-ico">' + SK.icon(ic, 'ico sm') + '</span>' : '') + '<div class="v">' + v + '</div><div class="l">' + l + '</div></div>'; }
   function ctrlSummary(list) {
     var c = {}; list.forEach(function (m) { c[m] = (c[m] || 0) + 1; });
     return Object.keys(c).map(function (m) { return m + (c[m] > 1 ? ' ×' + c[m] : ''); }).join(', ');
@@ -461,7 +523,7 @@ SK.dashboard = (function () {
     });
   }
 
-  function lockedNote(what) { if (role() === 'guest') return ''; return '<div class="locked">🔒 ' + what + ' — доступно ролі «Адміністратор».</div>'; }
+  function lockedNote(what) { if (role() === 'guest') return ''; return '<div class="locked">' + SK.icon('lock', 'ico sm') + ' ' + what + ' — доступно ролі «Адміністратор».</div>'; }
 
   /* ---- Огляд ---- */
   function overview(p) {
@@ -873,7 +935,7 @@ SK.dashboard = (function () {
     viewer.setDevices(ui.devCats);
     var btn = $('#devBtn');
     btn.classList.toggle('on', !!ui.devCats);
-    btn.textContent = '📡 Пристрої' + (ui.devCats ? ' · ' + ui.devCats.length : '');
+    btn.innerHTML = SK.icon('radar') + 'Пристрої' + (ui.devCats ? ' · ' + ui.devCats.length : ''); btn.classList.toggle('on', !!ui.devCats);
     if (!keepPop && !$('#devPop').hidden && window.SK_redrawDevPop) window.SK_redrawDevPop();
   }
   function setFloorBtn(f) { U.$all('#floors button').forEach(function (x) { x.classList.toggle('on', x.dataset.f === String(f)); }); }
@@ -903,7 +965,7 @@ SK.dashboard = (function () {
     var ctl = CT.controllable(d) && SEC.can('scenario'), off = CT.isOff(d), iss = G ? null : FL.deviceIssue(d, n);
     var st = DS.STATUS[s.status], cat = DEV.CATS[d.cat];
     var where = d.block === 'T' ? TR.zone(d.zone).name : (d.room ? d.room + ' · ' : '') + B.blockById(d.block).name + ', ' + d.floor + ' пов.';
-    var h = '<div class="rc-h">' + (ui.devBack ? '<button class="btn small" data-act="back" title="Повернутися до ' + esc(ui.devBack) + '">←</button>' : '') +
+    var h = '<div class="rc-h">' + (ui.devBack ? '<button class="btn small" data-act="back" title="Повернутися до ' + esc(ui.devBack) + '">' + SK.icon('chevL', 'ico sm') + '</button>' : '') +
       '<div class="grow"><div class="dc-cat"><span class="cat-dot" style="background:' + cat.css + '"></span>' + esc(cat.name) + '</div>' +
       '<h2>' + k.icon + ' ' + esc(d.label || d.name) + '</h2><div class="muted small">' + esc(where) + '</div></div>' +
       (ctl ? '<button class="pwr' + (off ? ' off' : '') + '" data-act="pwr" title="' + (off ? 'Увімкнути' : 'Вимкнути вручну') + '" aria-label="' + (off ? 'Увімкнути' : 'Вимкнути') + '">' + SK.PWR_ICON + '</button>' : '') +
@@ -917,9 +979,9 @@ SK.dashboard = (function () {
     if (d.label && d.label !== d.name) h += '<div class="small muted">' + esc(d.name) + '</div>';
 
     /* 2. Дії */
-    var acts = ['<button class="btn small" data-act="fly" title="Наблизити камеру до пристрою">⌖ На карті</button>'];
-    if (d.room) acts.push('<button class="btn small" data-act="room" title="Картка приміщення">🚪 ' + esc(d.room) + '</button>');
-    if (d.room && !G) acts.push('<button class="btn small" data-act="model" title="Окрема 3D-модель приміщення">🔍 Модель кімнати</button>');
+    var acts = ['<button class="btn small" data-act="fly" title="Наблизити камеру до пристрою">' + SK.icon('target', 'ico sm') + 'На карті</button>'];
+    if (d.room) acts.push('<button class="btn small" data-act="room" title="Картка приміщення">' + SK.icon('door', 'ico sm') + ' ' + esc(d.room) + '</button>');
+    if (d.room && !G) acts.push('<button class="btn small" data-act="model" title="Окрема 3D-модель приміщення">' + SK.icon('cube', 'ico sm') + 'Модель кімнати</button>');
     if (A && d.cabinet && !inW) acts.push('<button class="btn small" data-act="wires" title="Траса кабелю до шафи у вкладці «Комутація»">〰 Траса кабелю</button>');
     h += '<div class="row dc-acts">' + acts.join('') + '</div>';
 
@@ -928,8 +990,8 @@ SK.dashboard = (function () {
     if (A && d.cabinet) {
       var jb = d.room ? W.jbox(d.room) : null, PT = AT.PORT_TXT;
       h += '<details' + (inW || iss ? ' open' : '') + '><summary>Підключення · ' + esc(d.cabinet) + '</summary>' +
-        '<div class="dc-route">' + [k.icon + ' пристрій', jb ? '📦 ' + jb.id : null, jb ? '〰 лоток' : null, '⚡ ' + d.cabinet]
-          .filter(Boolean).map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('<i>→</i>') + '</div>' +
+        '<div class="dc-route">' + [[k.icon, 'пристрій'], jb ? [SK.icon('cabinet', 'ico sm'), jb.id] : null, jb ? [SK.icon('cable', 'ico sm'), 'лоток'] : null, [SK.icon('bolt', 'ico sm'), d.cabinet]]
+          .filter(Boolean).map(function (x) { return '<span>' + x[0] + ' ' + esc(x[1]) + '</span>'; }).join('<i>→</i>') + '</div>' +
         (d.conn || []).map(function (l) {
           var ps = FL.portState(l, n);
           return '<div class="dc-port"><span class="pdot p-' + ps + '" title="' + esc(PT[ps]) + '"></span><span class="cat-dot" style="background:' + W.BUS[l.type].css + '"></span>' +
