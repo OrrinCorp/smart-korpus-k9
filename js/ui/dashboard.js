@@ -149,12 +149,15 @@ SK.dashboard = (function () {
     $('#scrim').hidden = !open; $('#drawer').setAttribute('aria-hidden', String(!open)); $('#menuBtn').setAttribute('aria-expanded', String(open));
   }
   function setPanelOpen(open) {
+    /* Телефон: панель — шторка з трьома положеннями (js/ui/phone.js) */
+    if (SK.phone && SK.phone.active()) { SK.phone.panel(open); return; }
     ui.panelClosed = !open; document.body.classList.toggle('panel-closed', !open); $('#panelOpen').hidden = open;
     syncInset();
   }
   /* Карта знає, скільки місця справа займає панель, і центрує корпус у видимій частині */
   function syncInset() {
     if (!viewer || !viewer.setRightInset) return;
+    if (SK.phone && SK.phone.active()) { SK.phone.sync(); return; }
     var wide = !window.matchMedia('(max-width: 900px)').matches, pnl = $('#sidePanel');
     viewer.setRightInset(wide && !ui.panelClosed ? pnl.offsetWidth + 12 : 0);
   }
@@ -174,7 +177,8 @@ SK.dashboard = (function () {
     $('#panelOpen').addEventListener('click', function () { setPanelOpen(true); });
     $('#sysPill').addEventListener('click', function () { setTab('overview'); setPanelOpen(true); });
     $('#view3d').addEventListener('click', function () { if (viewer.isPlan()) $('#planBtn').click(); });
-    if (window.matchMedia('(max-width: 900px)').matches) setPanelOpen(false); else syncInset();
+    if (SK.phone) SK.phone.init({ setTab: setTab, setPanelOpen: setPanelOpen, setDrawer: setDrawer, viewer: function () { return viewer; } });
+    if (!SK.phone || !SK.phone.active()) syncInset();
     window.addEventListener('resize', syncInset);
   }
   function renderNav() {
@@ -486,15 +490,10 @@ SK.dashboard = (function () {
   }
   /* Перетягування картки за заголовок; позиція запам'ятовується на сеанс */
   function initCardDrag() {
-    var box = $('#roomCard'), drag = null, phone = window.matchMedia('(max-width: 640px)'), swipe = null;
-    /* Телефон: картка — нижня шторка; змах заголовка вниз закриває її */
-    box.addEventListener('pointerdown', function (e) { if (phone.matches && e.target.closest('.rc-h') && !e.target.closest('button')) swipe = e.clientY; });
-    box.addEventListener('pointerup', function (e) {
-      if (swipe != null && e.clientY - swipe > 60) { var c = box.querySelector('[data-act="close"]'); if (c) c.click(); }
-      swipe = null;
-    });
+    var box = $('#roomCard'), drag = null;
+    /* На телефоні картка — шторка; її перетягування — у js/ui/phone.js */
     box.addEventListener('pointerdown', function (e) {
-      if (phone.matches) return;
+      if (SK.phone && SK.phone.active()) return;
       if (!e.target.closest('.rc-h') || e.target.closest('button, a, select, input')) return;
       var r = box.getBoundingClientRect(), pr = box.offsetParent.getBoundingClientRect();
       drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, pr: pr }; box.classList.add('dragging'); box.setPointerCapture(e.pointerId);

@@ -1,0 +1,174 @@
+/* ==========================================================================
+   Телефонний режим (body.ph — вмикає js/ui/phone.js для екранів ≤ 900 px завширшки
+   або ≤ 500 px заввишки горизонтально). Підключається останнім і перекриває
+   старі медіазапити shell.css / dashboard.css.
+   --sh — поточний розмір шторки (висота в портреті, ширина горизонтально).
+   ========================================================================== */
+
+body.ph { height: 100vh; height: 100dvh; overflow: hidden; touch-action: manipulation; --tb: 34px; --g: 8px; }
+body.ph .layout { position: relative; flex: 1; min-height: 0; }
+body.ph .layout > .viewer { position: absolute !important; inset: 0 !important; height: auto !important; min-height: 0 !important; }
+/* iOS збільшує сторінку при фокусі на полях < 16 px */
+body.ph input, body.ph select, body.ph textarea { font-size: 16px; }
+
+/* ---------- Шапка: меню · годинник · роль · тема ---------- */
+body.ph .top { height: auto; min-height: 50px; padding: env(safe-area-inset-top, 0px) max(8px, env(safe-area-inset-right, 0px)) 0 max(4px, env(safe-area-inset-left, 0px));
+  gap: 6px; flex-wrap: nowrap; max-width: 100vw; }
+body.ph .top > * { flex: none; }
+body.ph .top .brand, body.ph .demo-badge, body.ph #clockDay, body.ph #clockSet, body.ph .role-sel .role-ico, body.ph .top > #sysPill { display: none !important; }
+body.ph .menu-btn { width: 42px; height: 42px; position: relative; }
+body.ph .menu-btn::after { content: ""; position: absolute; top: 6px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--good);
+  box-shadow: 0 0 0 2px var(--panel); }
+body.ph .menu-btn[data-badge]:not([data-badge=""])::after { content: attr(data-badge); top: 2px; right: -3px; width: auto; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 8px; font-size: 10px; font-weight: 800; line-height: 16px; text-align: center; color: #fff; }
+body.ph .menu-btn.st-warn::after { background: var(--warn); color: #1d1300; }
+body.ph .menu-btn.st-bad::after { background: var(--bad); animation: pillPulse 1.2s ease-in-out infinite alternate; }
+body.ph .clock { flex: 1 1 auto; min-width: 0; margin: 0; order: 0; width: auto; display: flex; align-items: baseline; gap: 6px; cursor: pointer;
+  padding: 6px 4px; border-radius: 10px; }
+body.ph .clock:active { background: var(--panel-2); }
+body.ph .clock b { font-size: 17px; }
+body.ph #clockPair { display: block !important; flex: 1; min-width: 0; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.ph .top-right { gap: 4px; margin-left: 0; }
+body.ph .role-sel { height: 36px; padding: 0 2px 0 6px; border-radius: 10px; }
+body.ph #role { font-size: 16px; max-width: 132px; padding: 0 2px; }
+body.ph .theme-btn { width: 36px; height: 36px; }
+body.ph .clock-pop { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 54px); left: 8px; right: 8px; width: auto; z-index: 95; }
+body.ph .clock-pop .row { flex-wrap: wrap; gap: 6px; }
+body.ph .clock-pop #clockSpeed { display: inline-block !important; font-size: 16px; padding: 4px 6px; }
+
+/* Стан корпусу — повним рядком у меню */
+body.ph .drawer { width: 320px; max-width: 88vw; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body.ph .drawer > #sysPill { display: flex; margin: 10px 12px 2px; height: 40px; justify-content: flex-start; width: calc(100% - 24px); }
+body.ph .drawer > #sysPill span { max-width: none; overflow: visible; }
+body.ph .d-item, body.ph .d-link { padding: 11px 12px; font-size: 15px; }
+
+/* ---------- Інструменти карти: рядок іконок + рядок поверхів ---------- */
+body.ph .v-toolbar { position: absolute; top: var(--g); left: var(--g); right: auto; display: flex; flex-wrap: nowrap; gap: 6px; overflow: visible; z-index: 12; }
+body.ph .v-toolbar .seg { padding: 2px; border-radius: 11px; }
+body.ph .v-toolbar .seg button { width: 32px; height: 30px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
+body.ph .v-toolbar .seg button .ico { width: 18px; height: 18px; }
+body.ph .map-search-w, body.ph .cm-w, body.ph .tb-btn { width: var(--tb); height: var(--tb); padding: 0; justify-content: center; border-radius: 11px; position: relative; font-size: 0; gap: 0; }
+body.ph .map-search-w .ico, body.ph .cm-w .ico, body.ph .tb-btn .ico { width: 18px; height: 18px; color: var(--fg-2); }
+/* Пошук розгортається на весь рядок при дотику */
+body.ph .map-search-w input { width: 0; min-width: 0; padding: 0; opacity: 0; }
+body.ph .map-search-w:focus-within { position: fixed; z-index: 60; left: var(--g); right: var(--g); width: auto; top: calc(var(--top-real, 52px) + var(--g));
+  justify-content: flex-start; padding: 0 12px; gap: 8px; height: 42px; background: var(--panel); }
+body.ph .map-search-w:focus-within input { width: 100%; opacity: 1; font-size: 16px; }
+/* Режим розфарбування: іконка поверх рідного списку телефона */
+body.ph .cm-w select { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; opacity: 0; font-size: 16px; }
+body.ph #devBtn { font-size: 0; }
+
+body.ph .v-side { position: absolute; top: calc(var(--g) + var(--tb) + 6px); left: var(--g); right: var(--g); display: flex; flex-direction: row; gap: 6px;
+  overflow: visible; padding: 0; z-index: 11; align-items: center; }
+body.ph .v-floors { display: flex; flex-direction: row; flex: none; padding: 2px; gap: 1px; border-radius: 11px; }
+body.ph .v-floors button { width: 34px; height: 30px; padding: 0; font-size: 14px; font-weight: 700; border: none !important; border-radius: 9px; display: grid; place-items: center; }
+body.ph .v-floors button small, body.ph .v-floors button br { display: none; }
+body.ph .v-views { display: flex !important; flex-direction: row; flex: none; gap: 1px; padding: 2px; border-radius: 11px; margin-left: auto; }
+body.ph .vbtn { width: 32px; height: 30px; padding: 0; justify-content: center; border-radius: 9px; }
+body.ph .vbtn em { display: none; }
+body.ph .vbtn .ico { width: 18px; height: 18px; }
+
+/* Легенда — лише за кнопкою «ℹ» */
+body.ph .v-legend { display: none; }
+body.ph.lg-open .v-legend { display: block; position: absolute; left: var(--g); right: var(--g); top: calc(var(--g) * 2 + var(--tb) * 2 + 2px); bottom: auto;
+  max-width: none; max-height: 40vh; overflow-y: auto; z-index: 13; padding: 10px 12px; font-size: 13px; }
+body.ph.lg-open .v-legend .legend-map { gap: 4px 12px; font-size: 13px; }
+body.ph .v-compass, body.ph .v-hint, body.ph .panel-open { display: none !important; }
+body.ph .v-devpop { position: fixed; top: calc(var(--top-real, 52px) + var(--g) * 2 + var(--tb) * 2); left: var(--g); right: var(--g); width: auto;
+  max-height: 55vh; overflow-y: auto; z-index: 40; }
+
+/* ---------- Шторка (розділ або картка) — портрет ---------- */
+body.ph .panel, body.ph .v-room, body.ph .v-room.dragging {
+  position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: auto !important;
+  height: var(--sh, 66px) !important; max-height: none !important; max-width: none !important; margin: 0;
+  display: flex !important; flex-direction: column; border-radius: 18px 18px 0 0; border-bottom: none; overflow: hidden;
+  box-shadow: 0 -10px 34px rgba(0, 0, 0, .32); padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 30; }
+body.ph .v-room[hidden] { display: none !important; }
+body.ph.sh-anim .panel, body.ph.sh-anim .v-room { transition: height .24s cubic-bezier(.2, .8, .2, 1), width .24s cubic-bezier(.2, .8, .2, 1); }
+body.ph.sh-card .panel { visibility: hidden; }
+body.ph .v-room { z-index: 31; background: var(--panel); }
+body.ph .panel { background: var(--panel); }
+/* Заголовок — ручка шторки */
+body.ph .panel-h, body.ph .v-room .rc-h { flex: none; position: relative; padding: 18px 10px 10px 14px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+body.ph .panel-h::before, body.ph .v-room .rc-h::before { content: ""; position: absolute; top: 7px; left: 50%; width: 40px; height: 4px; margin-left: -20px;
+  border-radius: 2px; background: color-mix(in srgb, var(--fg) 28%, transparent); }
+body.ph .panel-h .ph-ico { width: 30px; height: 30px; }
+body.ph .ph-t { font-size: 16px; } body.ph .ph-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.ph #panelMin { width: 36px; height: 36px; }
+body.ph #panelMin .ico { transform: rotate(90deg); transition: transform .2s; }
+body.ph.sh-min #panelMin .ico { transform: rotate(-90deg); }
+body.ph .panel .tabs { flex: none; padding: 6px 10px 8px; }
+body.ph .panel .tabs button { padding: 7px 12px; font-size: 13.5px; }
+body.ph .panel .panel-body, body.ph .v-room .rc-b { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 10px 14px calc(28px + env(safe-area-inset-bottom, 0px)); overflow-wrap: break-word; word-break: normal; }
+body.ph.sh-min .panel .tabs, body.ph.sh-min .panel .panel-body, body.ph.sh-min .v-room .rc-b, body.ph.sh-min .v-room .dc-acts { display: none !important; }
+
+/* Картка: заголовок із кнопкою «← Розділ» */
+body.ph .v-room .rc-h { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+body.ph .v-room .rc-h > .grow { min-width: 0; flex: 1 1 160px; }
+body.ph .v-room .rc-h h2 { font-size: 18px; }
+body.ph .v-room .sh-back { order: -1; padding: 6px 10px 6px 6px; gap: 2px; }
+body.ph .v-room .dc-acts { flex-basis: 100%; gap: 6px; flex-wrap: wrap; }
+body.ph .v-room .dc-acts .btn { padding: 7px 10px; }
+body.ph .v-room .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ---------- Вміст розділів ---------- */
+body.ph .panel-body .row { flex-wrap: wrap; }
+body.ph .panel-body select { max-width: 100%; }
+body.ph .form-grid { grid-template-columns: minmax(0, 1fr) !important; }
+body.ph .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+body.ph .tw, body.ph .ph-tw { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 0 -2px; }
+body.ph table.t { font-size: 12.5px; min-width: 100%; }
+body.ph table.t td, body.ph table.t th { padding: 6px 6px; }
+body.ph .btn, body.ph button { overflow-wrap: normal; word-break: keep-all; }
+body.ph .btn.small { min-height: 32px; }
+/* Сегментні перемикачі (журнали тощо) — без розриву слів, з прокруткою */
+body.ph .lg-seg { display: flex; overflow-x: auto; scrollbar-width: none; }
+body.ph .lg-seg button { flex: 1 0 auto; white-space: nowrap; padding: 8px 12px; }
+/* Схеми й графіки: читабельний масштаб і прокрутка вбік */
+body.ph .panel-body svg { max-width: none; }
+body.ph .cabinet-svg, body.ph .line-tree { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+body.ph .chart svg, body.ph .stack-chart svg, body.ph .ppl-chart svg { max-width: 100%; height: auto; }
+
+/* Демо-тур і спливні — над шторкою */
+body.ph .tour { left: 8px; right: 8px; width: auto; transform: none; bottom: calc(var(--sh, 66px) + 8px); max-height: 38vh; overflow-y: auto; z-index: 50; }
+body.ph.sh-full .tour { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
+body.ph .viewer-tip { display: none !important; }
+
+
+/* Модель кімнати на телефоні: 3D згори, дані знизу з прокруткою */
+body.ph .rm-head { padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px 6px; gap: 6px; }
+body.ph .rm-head label { margin-right: 2px; font-size: 13px; }
+body.ph .rm-body { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 52%) minmax(0, 48%) !important; }
+body.ph .rm-side { border-left: none; border-top: 1px solid var(--line); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---------- Горизонтально: шторка справа ---------- */
+@media (orientation: landscape) {
+  body.ph .top { min-height: 44px; }
+  body.ph .menu-btn { width: 38px; height: 38px; }
+  body.ph .panel, body.ph .v-room, body.ph .v-room.dragging {
+    left: auto !important; right: 0 !important; top: calc(var(--top-real, 44px)) !important; bottom: 0 !important;
+    width: var(--sh, 240px) !important; height: auto !important; border-radius: 16px 0 0 0;
+    padding-right: env(safe-area-inset-right, 0px); box-shadow: -10px 0 34px rgba(0, 0, 0, .3); }
+  body.ph.sh-min .panel, body.ph.sh-min .v-room { bottom: auto !important; height: auto !important; border-radius: 0 0 0 14px; }
+  body.ph .panel-h::before, body.ph .v-room .rc-h::before { top: 50%; left: 5px; width: 4px; height: 36px; margin: -18px 0 0; }
+  body.ph .panel-h, body.ph .v-room .rc-h { padding: 10px 10px 10px 18px; }
+  body.ph #panelMin .ico { transform: rotate(0deg); }
+  body.ph.sh-min #panelMin .ico { transform: rotate(180deg); }
+  body.ph .v-toolbar { flex-wrap: wrap; max-width: calc(100vw - var(--sh, 240px) - 70px); left: calc(var(--g) + 44px); }
+  body.ph .v-side { top: var(--g); left: var(--g); right: auto; flex-direction: column; align-items: flex-start; }
+  body.ph .v-floors { flex-direction: column; }
+  body.ph .v-views { flex-direction: column; margin: 0; }
+  body.ph .v-floors button { width: 36px; height: 26px; }
+  body.ph .vbtn { height: 26px; width: 36px; }
+  body.ph.lg-open .v-legend { left: calc(var(--g) + 50px); right: calc(var(--sh, 240px) + var(--g)); top: calc(var(--g) * 2 + var(--tb)); }
+  body.ph .v-devpop { left: calc(var(--g) + 50px); right: calc(var(--sh, 240px) + var(--g)); top: calc(var(--top-real, 44px) + var(--g) * 2 + var(--tb)); }
+  body.ph .tour { left: 8px; right: calc(var(--sh, 240px) + 8px); bottom: 8px; }
+  body.ph .map-search-w:focus-within { right: calc(var(--sh, 240px) + var(--g)); }
+  body.ph .rm-body { grid-template-columns: minmax(0, 1fr) minmax(0, 42%) !important; grid-template-rows: minmax(0, 1fr) !important; }
+  body.ph .rm-side { border-top: none; border-left: 1px solid var(--line); }
+}
+/* Сповіщення — згори під рядками інструментів, щоб не перекривати шторку й демо-тур */
+body.ph #toasts { top: calc(var(--top-real, 52px) + 86px) !important; bottom: auto !important; left: 8px !important; right: 8px !important; transform: none !important; }
+@media (orientation: landscape) { body.ph #toasts { top: calc(var(--top-real, 44px) + 50px) !important; left: 56px !important; right: calc(var(--sh, 240px) + 8px) !important; } }
+body:not(.ph) #lgBtn { display: none; }

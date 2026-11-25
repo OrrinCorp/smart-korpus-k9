@@ -25,11 +25,13 @@ SK.Viewer = function (container, opts) {
 
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(42, 1, 0.5, 1000);
+  var insets = { l: 0, r: 0, t: 0, b: 0 };
   var HOME = { pos: new THREE.Vector3(92, 88, 82), target: new THREE.Vector3(6, 2, -22) };
   /* Стартовий ракурс залежить від форми екрана: на вузькому (телефон, портрет) камера відходить далі,
      щоб корпус і територія вміщалися по ширині */
   function homePos() {
-    var w = container.clientWidth || 1, h = container.clientHeight || 1, a = w / h;
+    /* видима частина: без панелей / шторки поверх карти (insets) */
+    var w = Math.max(1, (container.clientWidth || 1) - insets.l - insets.r), h = Math.max(1, (container.clientHeight || 1) - insets.t - insets.b), a = w / h;
     var k = a >= 1.3 ? 1 : Math.min(2.15, 1.25 / a);
     return HOME.target.clone().add(HOME.pos.clone().sub(HOME.target).multiplyScalar(k));
   }
@@ -646,17 +648,22 @@ SK.Viewer = function (container, opts) {
 
   /* ---------- Цикл рендерингу ---------- */
   /* rightInset — ширина плаваючої панелі поверх карти справа: центр сцени зсуваємо в лівішу, видиму частину */
-  var rightInset = 0;
+  /* insets — скільки місця з кожного боку закривають панелі поверх карти (на телефоні — шторка знизу
+     й рядки інструментів згори). Центр сцени зсувається в середину видимої частини. */
   function resize() {
     var w = container.clientWidth || 1, h = container.clientHeight || 1;
     renderer.setSize(w, h, false);
     renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
-    var ins = rightInset && w - rightInset > 320 ? rightInset : 0;
-    camera.aspect = (w + ins) / h;
-    if (ins) camera.setViewOffset(w + ins, h, ins, 0, w, h); else camera.clearViewOffset();
+    var dx = insets.r - insets.l, dy = insets.b - insets.t;
+    if (w - insets.l - insets.r < 200) dx = 0;
+    if (h - insets.t - insets.b < 120) dy = 0;
+    var fw = w + Math.abs(dx), fh = h + Math.abs(dy);
+    camera.aspect = fw / fh;
+    if (dx || dy) camera.setViewOffset(fw, fh, dx > 0 ? dx : 0, dy > 0 ? dy : 0, w, h); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
-  this.setRightInset = function (px) { rightInset = px || 0; resize(); };
+  this.setRightInset = function (px) { insets.r = px || 0; resize(); };
+  this.setInsets = function (o) { ['l', 'r', 't', 'b'].forEach(function (k) { insets[k] = Math.max(0, Math.round(o[k] || 0)); }); resize(); };
   if (window.ResizeObserver) new ResizeObserver(resize).observe(container);
   window.addEventListener('resize', resize);
   resize();
