@@ -407,11 +407,16 @@ SK.RoomView = (function () {
         (canSee('ports') ? '<div class="small muted">' + (selDev.conn || []).map(function (c) { return esc((c.inst ? c.inst.id + ' · ' : '') + c.port + ' · ' + c.cable + (c.len ? ' ≈' + c.len + ' м' : '')); }).join('<br>') + '<br><code>' + esc(selDev.topic) + '</code></div>' : '') + '</div>';
     }
     if (canSee('devices')) {
-      h += '<h3>Пристрої (' + devs.length + ')</h3><div class="small">' + devs.map(function (d) {
-        var st = SK.devices.state(d, now);
-        return '<a href="#" data-rdev="' + esc(d.id) + '"' + (d === selDev ? ' style="font-weight:700"' : '') + '>' + REG.KINDS[d.kind].icon + ' ' + esc(d.name) + '</a> — ' + esc(st.value || '') +
-          (canSee('ports') && d.conn && d.conn[0] ? ' <span class="muted">[' + esc(d.conn[0].port) + ']</span>' : '');
-      }).join('<br>') + '</div>';
+      /* Список пристроїв — окремі рядки: іконка · назва і стан · порт (не переносяться посеред рядка) */
+      h += '<h3>Пристрої (' + devs.length + ')</h3><div class="rm-devs">' + devs.map(function (d) {
+        var st = SK.devices.state(d, now), lvl = SK.devices.STATUS[st.status] ? SK.devices.STATUS[st.status].lvl : '';
+        var port = canSee('ports') && d.conn && d.conn[0] ? d.conn[0].port : '';
+        return '<a href="#" class="rm-dev' + (d === selDev ? ' on' : '') + '" data-rdev="' + esc(d.id) + '" title="' + esc(d.name + (d.label ? ' · ' + d.label : '')) + '">' +
+          '<span class="rd-ico">' + REG.KINDS[d.kind].icon + '</span>' +
+          '<span class="rd-t"><span class="rd-n">' + esc(d.name) + (d.label ? ' <span class="muted">· ' + esc(d.label) + '</span>' : '') + '</span>' +
+          '<span class="rd-v' + (st.status === 'fault' || st.status === 'alarm' ? ' lvl ' + lvl : '') + '">' + esc(st.value || '—') + '</span></span>' +
+          (port ? '<span class="rd-p">' + esc(port) + '</span>' : '') + '</a>';
+      }).join('') + '</div>';
     }
     if (canSee('cables')) {
       var links = W.forRoom(room.id), jb = W.jbox(room.id), byBus = {};

@@ -139,8 +139,12 @@ body.ph .viewer-tip { display: none !important; }
 /* Модель кімнати на телефоні: 3D згори, дані знизу з прокруткою */
 body.ph .rm-head { padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px 6px; gap: 6px; }
 body.ph .rm-head label { margin-right: 2px; font-size: 13px; }
-body.ph .rm-body { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 52%) minmax(0, 48%) !important; }
-body.ph .rm-side { border-left: none; border-top: 1px solid var(--line); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+body.ph .rm-side .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+body.ph .rm-dev { padding: 9px 8px; }
+body.ph .rm-modal { height: 100vh; height: 100dvh; }
+body.ph .rm-view { height: auto !important; min-height: 0 !important; }      /* не «58 % екрана», як для карти */
+body.ph .rm-body { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 44%) minmax(0, 56%) !important; }
+body.ph .rm-side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-left: none; border-top: 1px solid var(--line); padding: 10px 12px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 
 /* ---------- Горизонтально: шторка справа ---------- */
 @media (orientation: landscape) {

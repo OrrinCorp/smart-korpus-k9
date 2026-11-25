@@ -35,6 +35,8 @@ SK.Viewer = function (container, opts) {
     var k = a >= 1.3 ? 1 : Math.min(2.15, 1.25 / a);
     return HOME.target.clone().add(HOME.pos.clone().sub(HOME.target).multiplyScalar(k));
   }
+  /* У скільки разів далі за типовий ракурс треба відійти, щоб корпус умістився у видиму частину (телефон — до 2,15) */
+  function fitK() { return homePos().distanceTo(HOME.target) / HOME.pos.distanceTo(HOME.target); }
   camera.position.copy(homePos());
   var controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.target.copy(HOME.target);
@@ -733,13 +735,22 @@ SK.Viewer = function (container, opts) {
   this.setFloor = function (f, noFly) {
     floor = f; applyVisibility(); recolor();
     if (plan) planCamera();
-    else if (f !== null && !noFly && !isolated) flyTo(new THREE.Vector3(controls.target.x, B.floorZ('A', f) + 1.5, controls.target.z), Math.min(130, camera.position.distanceTo(controls.target)));
+    else if (f !== null && !noFly && !isolated) flyTo(new THREE.Vector3(controls.target.x, B.floorZ('A', f) + 1.5, controls.target.z), Math.min(130 * fitK(), camera.position.distanceTo(controls.target)));
   };
   /* Режим «План»: вигляд згори на обраний поверх, перетягування — зсув */
+  /* План: висота камери така, щоб корпус і територія (x −34…54, y −10…64 м) вмістилися у ВИДИМУ частину
+     карти (без панелі / шторки й рядків інструментів) — і на широкому екрані, і на вузькому телефоні */
+  var PLAN_EXT = { x0: -35, x1: 55, y0: -11, y1: 65 };
   function planCamera() {
     var z = (floor === null ? 1 : floor) * B.floorH + 1;
+    var w = container.clientWidth || 1, h = container.clientHeight || 1;
+    var fh = h + Math.abs(insets.b - insets.t), tpp = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (fh / 2);   // тангенс на піксель
+    var vw = Math.max(120, w - insets.l - insets.r), vh = Math.max(120, h - insets.t - insets.b);
+    var hx = (PLAN_EXT.x1 - PLAN_EXT.x0) / 2, hy = (PLAN_EXT.y1 - PLAN_EXT.y0) / 2;
+    var d = Math.max(hx / (tpp * vw / 2), hy / (tpp * vh / 2)) * (insets.t ? 1.06 : 1.2);   // на широкому екрані — запас на рядок інструментів і легенду
+    var cx = (PLAN_EXT.x0 + PLAN_EXT.x1) / 2, cy = (PLAN_EXT.y0 + PLAN_EXT.y1) / 2;
     tween = { t0: performance.now(), p0: camera.position.clone(), c0: controls.target.clone(),
-      c1: new THREE.Vector3(2, z, -27), p1: new THREE.Vector3(2, z + 132, -26.9) };
+      c1: new THREE.Vector3(cx, z, -cy), p1: new THREE.Vector3(cx, z + Math.min(400, d), -cy + 0.1) };
   }
   this.setPlan = function (on) {
     plan = !!on;
@@ -767,7 +778,7 @@ SK.Viewer = function (container, opts) {
   };
   this.getIsolated = function () { return isolated; };
   /* «Розібрані» поверхи: кожен поверх піднято, щоб було видно всі */
-  this.setExplode = function (on) { exploded = !!on; clearRoute(); self.setWiring(null); applyVisibility(); if (on) flyTo(new THREE.Vector3(0, 14, -24), 150); };
+  this.setExplode = function (on) { exploded = !!on; clearRoute(); self.setWiring(null); applyVisibility(); if (on) flyTo(new THREE.Vector3(0, 14, -24), 150 * fitK()); };
   this.setLabelsAll = function (on) { labelsAll = !!on; applyVisibility(); };
   /* Шар пристроїв: масив категорій (див. SK.devicesI3.CATS) або null — вимкнути */
   this.setDevices = function (cats) { devCats = cats && cats.length ? cats.slice() : null; applyVisibility(); recolor(); };
