@@ -6,8 +6,8 @@ window.SK = window.SK || {};
 SK.PWR_ICON = '<svg class="ico-pwr" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 3v8" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/><path d="M6.2 6.6a8 8 0 1 0 11.6 0" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/></svg>';
 
 SK.util = (function () {
-  /* Детермінований хеш рядка → [0,1). Потрібен, щоб усі вкладки (панель і
-     студентський додаток) бачили однакові симульовані значення без сервера. */
+  /* Детермінований хеш рядка → [0,1). Потрібен, щоб усі вкладки панелі
+     бачили однакові симульовані значення без сервера. */
   function hash01(str) {
     var h = 2166136261;
     for (var i = 0; i < str.length; i++) {

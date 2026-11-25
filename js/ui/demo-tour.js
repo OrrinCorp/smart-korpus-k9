@@ -50,8 +50,8 @@ SK.tour = (function () {
       run: function () { D.setSimTime(1, '15:30'); SK.power.restore(); D.setTab('energy'); D.setColorMode('power'); } },
     { title: '11. Подія безпеки', text: 'Тестова подія: відчинено двері серверної без відбитка. Приміщення блимає червоним, подія — в журналі з підтвердженням і експортом CSV.',
       run: function () { D.setTab('security'); D.setColorMode('status'); var ev = SK.security.TESTS[0].run(); floor(0); D.viewer.select(ev.room); D.viewer.focusRoom(ev.room); } },
-    { title: '12. Студентський застосунок', text: 'Студенти бачать лише онлайн-розклад, розклад подій, пошук аудиторій і оголошення — без датчиків і керування. Події створює адміністратор у вкладці «Події».',
-      run: function () { D.setTab('events'); } }
+    { title: '12. Реальний розклад і люди в аудиторіях', text: 'Заняття — з реального розкладу ННІФТКН (потоки, 1-й/2-й тиждень). Присутність симулюється за розкладом: сходяться за 12 хв до пари, частина запізнюється, на перерві виходять. Кількість людей рахують лічильники Milesight в аудиторіях; PIR бачить лише рух.',
+      run: function () { D.setSimTime(2, '11:40'); D.viewer.select(null); D.setTab('rooms'); D.setColorMode('presence'); floor(null); D.viewer.home(); } }
   ];
 
   function show() {

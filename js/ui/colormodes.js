@@ -1,10 +1,11 @@
-/* Режими розфарбування 3D-карти та легенди до них (спільні для обох застосунків). */
+/* Режими розфарбування 3D-карти та легенди до них (карта панелі). */
 SK.colorModes = (function () {
   var U = SK.util, S = SK.schedule, I3 = SK.i3;
   /* Нейтральні кольори залежать від теми: у темній — графітові, щоб яскравими були лише статуси */
   function dk() { return SK.theme && SK.theme.isDark(); }
   var NEU = { get gray() { return dk() ? 0x334252 : 0xc7cdd1; }, get dim() { return dk() ? 0x243140 : 0xe1e5e8; }, get svc() { return dk() ? 0x2b3846 : 0xd3d9de; } };
   var TEMP = [[17, 0x3b7dd8], [20, 0x5fb3a8], [22, 0x2e9e5b], [24, 0xd99a1e], [26, 0xd64545]];
+  var PEOPLE = [[1, 0xf3d28a], [20, 0xe28a3b], [60, 0xc4552d], [100, 0x9b2c4a]];
   var CO2 = [[600, 0x2e9e5b], [900, 0x9fbf3a], [1200, 0xd99a1e], [1600, 0xd64545]];
 
   /* Службові приміщення (санвузли, курилки, технічні, хол) — один нейтральний колір: їх розрізняють підписи, а не кольори */
@@ -51,12 +52,15 @@ SK.colorModes = (function () {
     },
     presence: {
       name: 'Присутність людей',
+      /* Аудиторії — кількість людей з лічильника; решта приміщень — лише факт руху (PIR) */
       color: function (room, now) {
         var v = I3.read(room.id, now);
         if (!v.people) return special(room) || NEU.dim;
-        return U.scale([[1, 0xf3d28a], [15, 0xe28a3b], [40, 0xb5462a]], v.people);
+        if (!SK.devicesI3.hasCounter(room)) return special(room) || (dk() ? 0x6f7f8f : 0xa9b4bd);
+        return U.scale(PEOPLE, v.people);
       },
-      legend: function () { return '<span class="k"><i style="background:' + U.hex(NEU.dim) + '"></i>Нікого</span>' + grad([[1, 0xf3d28a], [15, 0xe28a3b], [40, 0xb5462a]], '1', '40+ осіб'); }
+      legend: function () { return '<span class="k"><i style="background:' + U.hex(NEU.dim) + '"></i>Нікого</span>' + grad(PEOPLE, '1', '100+ осіб') +
+        '<span class="k"><i style="background:' + U.hex(dk() ? 0x6f7f8f : 0xa9b4bd) + '"></i>Рух (PIR, без підрахунку)</span>'; }
     },
     light: {
       name: 'Освітлення',

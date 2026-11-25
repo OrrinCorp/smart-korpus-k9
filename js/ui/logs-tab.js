@@ -4,7 +4,7 @@ SK.logsTab = (function () {
   var U = SK.util, B = SK.building, L = SK.logs, DEV = SK.devicesI3, SEC = SK.security, esc = U.esc, $ = U.$;
   var PREVIEW = 60;
   var st = { kind: 'sensors', preset: 'today', from: '', to: '', step: '15', scope: 'all', block: 'A', floor: '2', room: '', device: '',
-    kinds: ['temp', 'co2', 'pir', 'pm', 'leak', 'door'] };
+    kinds: ['temp', 'co2', 'pir', 'counter', 'counterDoor', 'pm', 'leak', 'door'] };
   function D() { return SK.dashboard; }
 
   function open(o) {

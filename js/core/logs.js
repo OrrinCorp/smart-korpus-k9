@@ -50,7 +50,9 @@ SK.logs = (function () {
   var SENSOR_TYPES = {
     temp: { name: 'Температура (1-Wire)', params: [['Температура', '°C', 'temp', 1]] },
     co2:  { name: 'CO₂ / температура / вологість', params: [['CO₂', 'ppm', 'co2', 0], ['Температура', '°C', 'temp', 1], ['Вологість', '%', 'hum', 0]] },
-    pir:  { name: 'Присутність (PIR)', params: [['Присутність', 'так/ні', 'presence', 0], ['Людей (оцінка)', 'осіб', 'people', 0]] },
+    pir:  { name: 'Рух (PIR)', params: [['Рух', 'так/ні', 'presence', 0]] },
+    counter: { name: 'Лічильник людей у зоні (VS121-P)', params: [['Людей у зоні', 'осіб', 'peopleZone', 0], ['Людей в аудиторії', 'осіб', 'people', 0]] },
+    counterDoor: { name: 'Лічильник проходів (VS133-P)', params: [['Людей в аудиторії', 'осіб', 'people', 0]] },
     pm:   { name: 'PM2.5 / дим', params: [['PM2.5', 'мкг/м³', 'pm25', 0]] },
     leak: { name: 'Протікання', params: [['Протікання', 'так/ні', 'leak', 0]] },
     door: { name: 'Двері (геркон)', params: [['Двері', 'відчинено/зачинено', 'door', 0]] }
@@ -82,6 +84,10 @@ SK.logs = (function () {
             var val = '';
             if (!bad && v) {
               if (p[2] === 'presence') val = v.people > 0 ? 'так' : 'ні';
+              else if (p[2] === 'peopleZone') {      /* люди розподіляються між зонами датчиків аудиторії */
+                var zm = String(d.label || '').match(/(\d+) з (\d+)/), zi = zm ? +zm[1] - 1 : 0, zn = zm ? +zm[2] : 1;
+                val = num(Math.floor(v.people / zn) + (zi < v.people % zn ? 1 : 0), 0);
+              }
               else if (p[2] === 'pm25') val = num(v.pm25 != null ? v.pm25 : 6 + U.hash01(d.id + Math.floor(times[i] / 600000)) * 5, 0);
               else if (p[2] === 'leak') val = leakAt(d.room, times[i]) ? 'так' : 'ні';
               else if (p[2] === 'door') val = doorOpenAt(d.room, times[i]) ? 'відчинено' : 'зачинено';

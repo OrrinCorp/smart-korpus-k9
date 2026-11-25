@@ -19,8 +19,9 @@
 <script src="../vendor/three/GLTFLoader.js"></script>
 <script src="../js/core/util.js"></script>
 <script src="../js/core/store.js"></script>
+<script src="../js/data/real-schedule.js"></script>
+<script src="../js/core/schedule-import.js"></script>
 <script src="../js/data/building.js"></script>
-<script src="../js/data/schedule-data.js"></script>
 <script src="../js/data/territory.js"></script>
 <script src="../js/data/devices-i3.js"></script>
 <script src="../js/core/uni-events.js"></script>
@@ -66,8 +67,69 @@
     }); });
     if (bad.length) throw new Error(bad.slice(0, 5).join(', '));
   });
-  t('Розклад згенеровано', function () { var n = S.lessons().length; return n > 200 ? n + ' занять, ' + S.groups.length + ' груп' : false; });
-  t('Є навмисний конфлікт для демонстрації', function () { return S.conflicts().some(function (c) { return c.kind === 'room'; }); });
+  t('Реальний розклад ННІФТКН завантажено', function () {
+    var i = S.info();
+    if (i.info.imported) throw new Error('очікувався знімок з сайту');
+    return i.lessons > 500 && i.groups > 100 && i.report.rooms >= 60 ? i.lessons + ' занять, ' + i.report.streams + ' потоків, ' + i.groups + ' груп, ' + i.report.rooms + ' аудиторій' : false;
+  });
+  t('Розбір номерів аудиторій джерела', function () {
+    var K = SK.scheduleImport.roomKey, cases = [['к.9, а.310', 'Б-310'], ['9-110Б', 'Б-110'], ['Корпус 9, ауд. 303А', 'А-303'], ['к.9,а.А303', 'А-303'],
+      ['к.9,аА116', 'А-116'], ['к.9, а.2', '2'], ['9-3', '3'], ['к.9,а.В4', 'В4'], ['к.9, а.24П', '24П'], ['8-326', null], ['онлайн', null], ['Корпус 2, ауд. 206', null]];
+    var bad = cases.filter(function (c) { return K(c[0]) !== c[1]; });
+    if (bad.length) throw new Error(bad.map(function (c) { return c[0] + ' → ' + K(c[0]); }).join('; '));
+    return cases.length + ' випадків';
+  });
+  t('Кожна аудиторія розкладу є в моделі', function () {
+    var miss = SK.realSchedule.rooms.filter(function (x) { var r = B.room(x[0]); return !r || !r.bookable; });
+    if (miss.length) throw new Error(miss.map(function (x) { return x[0]; }).join(', '));
+    if (Object.keys(S.info().report.unknownRoom).length) throw new Error('є заняття в невідомих аудиторіях');
+    return SK.realSchedule.rooms.length + ' аудиторій, номери унікальні';
+  });
+  t('Потоки й тижні: кілька груп — одне заняття, 1-й/2-й тиждень', function () {
+    var big = S.lessons().filter(function (l) { return l.room === '3' && l.groups.length >= 8; })[0];
+    if (!big) throw new Error('потік у ауд. 3 не зібрано');
+    var w = SK.scheduleImport.weekOf;
+    if (w(new Date(2026, 8, 1)) !== 1 || w(new Date(2026, 8, 7)) !== 2 || w(new Date(2026, 8, 14)) !== 1) throw new Error('парність тижнів');
+    var weekly = S.lessons().filter(function (l) { return l.week === 0; }).length, odd = S.lessons().filter(function (l) { return l.week === 1; }).length;
+    return 'ауд. 3: ' + big.groups.length + ' груп, ' + big.people + ' студ.; щотижня ' + weekly + ', лише 1-й тиждень ' + odd;
+  });
+  t('Конфлікти джерела виявляються, потоки — не конфлікт', function () {
+    var cf = S.conflicts(), streamCf = cf.filter(function (c) { return c.kind === 'room' && c.lessons.every(function (l) { return l.subject === c.lessons[0].subject; }); });
+    if (streamCf.length) throw new Error('потік позначено конфліктом');
+    return cf.length ? cf.length + ' конфліктів у джерелі' : false;
+  });
+  t('Присутність: сходяться до пари, запізнюються, виходять', function () {
+    var l = S.lessons().filter(function (x) { return x.day === 1 && x.pair === 3 && x.week === 0 && !S.lessonsAt(x.room, 1, 2, 1).length && !S.lessonsAt(x.room, 1, 4, 1).length && !S.lessonsAt(x.room, 1, 2, 2).length && !S.lessonsAt(x.room, 1, 4, 2).length; })[0];
+    if (!l) throw new Error('немає ізольованої 3-ї пари');
+    function at(h, m) { var d = new Date(mon); d.setHours(h, m, 0, 0); return S.peopleAt(l.room, d); }
+    var before = at(11, 10), early = at(11, 25), start = at(11, 31), late = at(11, 50), end = at(12, 58), att = S.attendance(l, mon);
+    if (!(before === 0 && early > 0 && early < late && start <= late && end === 0)) throw new Error([before, early, start, late, end].join(' / '));
+    if (late > l.people + 1) throw new Error('більше, ніж у групі');
+    return l.room + ' ' + l.group + ': 11:25 → ' + early + ', 11:50 → ' + late + ' з ' + l.people + ' (відвідуваність ' + Math.round(att.rate * 100) + ' %)';
+  });
+  t('Лічильники людей в аудиторіях, PIR лише фіксує рух', function () {
+    var no = B.bookableRooms().filter(function (r) { return !SK.devicesI3.hasCounter(r); });
+    if (no.length) throw new Error('без лічильника: ' + no.slice(0, 5).map(function (r) { return r.id; }).join(', '));
+    var pir = SK.devicesI3.devices.filter(function (d) { return d.kind === 'pir' && d.room; })[0];
+    var v = SK.devices.state(pir, mon).value;
+    if (/\d/.test(v)) throw new Error('PIR показує число: ' + v);
+    var c121 = SK.devicesI3.devices.filter(function (d) { return d.kind === 'counter'; }).length, c133 = SK.devicesI3.devices.filter(function (d) { return d.kind === 'counterDoor'; }).length;
+    var p = SK.devpower.passportOf('counter');
+    return 'VS121-P × ' + c121 + ', VS133-P × ' + c133 + '; ' + (p && p.p.avg) + ' Вт';
+  });
+  t('Імпорт власного JSON розкладу і повернення знімка', function () {
+    var res = S.importJson(JSON.stringify([
+      { day: 'Понеділок', period: 1, week: 1, group: '999 група', subject: 'Тест', teacher: 'доц. Тестовий Т.Т.', room: 'к.9, а.310', type: 'lecture' },
+      { day: 'Понеділок', period: 1, week: 2, group: '999 група', subject: 'Тест', teacher: 'доц. Тестовий Т.Т.', room: 'к.9, а.310', type: 'lecture' },
+      { day: 'Вівторок', period: 2, week: 1, group: '998', subject: 'Х', teacher: '', room: '8-326', type: 'lab' },
+      { day: 'Середа', period: 2, week: 1, group: '998', subject: 'Х', teacher: '', room: 'к.9, а.777', type: 'lab' }]), 'test.json');
+    if (res.error) throw new Error(res.error);
+    var ls = S.lessons();
+    var ok = ls.length === 1 && ls[0].week === 0 && res.report.otherBuilding === 1 && res.report.unknownRoom['Б-777'] === 1;
+    S.resetImport();
+    if (S.info().info.imported || S.lessons().length < 500) throw new Error('знімок не повернувся');
+    return ok ? '1 заняття (щотижня), інший корпус і невідома аудиторія — у звіті' : false;
+  });
   t('Статуси аудиторій у пн 10:00', function () {
     var c = { free: 0, busy: 0, booked: 0 };
     B.bookableRooms().forEach(function (r) { c[S.status(r.id, mon).status]++; });
@@ -84,7 +146,7 @@
   });
   t('Додавання заняття перевіряє конфлікт', function () {
     var l = S.lessons().filter(function (x) { return !x.imported; })[0];
-    return !!S.checkLesson({ room: l.room, day: l.day, pair: l.pair, group: 'КН-11' });
+    return !!S.checkLesson({ room: l.room, day: l.day, pair: l.pair, group: '999', week: l.week });
   });
   t('Датчики: CO₂ зростає під час пари', function () {
     var l = S.lessons().filter(function (x) { return x.day === 1 && x.pair === 2; })[0];
@@ -169,7 +231,8 @@
       var fl = {}; B.rooms.filter(function (r) { return r.block === b; }).forEach(function (r) { fl[r.floor] = 1; });
       if (Object.keys(fl).join() !== '0,1,2,3,4') throw new Error('блок ' + b + ': ' + Object.keys(fl).join());
     });
-    if (B.rooms.some(function (r) { return r.floor === 0 && r.bookable; })) throw new Error('аудиторія на 0-му поверсі');
+    var f0 = B.rooms.filter(function (r) { return r.floor === 0 && r.bookable; }).map(function (r) { return r.id; }).sort().join(',');
+    if (f0 !== ['1', '2', '24П', '3', '7', '8', '9', 'В10', 'В4'].sort().join(',')) throw new Error('на 0-му поверсі: ' + f0);
     var a = B.adminRoom(); return a && a.floor === 0 ? a.id + ' · ' + a.name : false;
   });
   t('Сценарії: розклад → «Заняття», ніч → «Неробочий час»', function () {

@@ -75,7 +75,7 @@ SK.dashboard = (function () {
     $('#mapSearch').addEventListener('keydown', function (e) {
       if (e.key !== 'Enter') return;
       var id = findRoom(e.target.value);
-      if (!id) { U.toast('Приміщення «' + e.target.value + '» не знайдено (приклад: А-305, Б-013, А-001)', 'warn'); return; }
+      if (!id) { U.toast('Приміщення «' + e.target.value + '» не знайдено (приклад: 310, 205А, Б-110, ауд. 3, А-001)', 'warn'); return; }
       var r = B.room(id); setFloorBtn(r.floor); viewer.setFloor(r.floor); viewer.select(id); viewer.focusRoom(id);
     });
     $('#lblBtn').addEventListener('click', function (e) { ui.lbl = !ui.lbl; e.currentTarget.classList.toggle('on', ui.lbl); viewer.setLabelsAll(ui.lbl); });
@@ -247,7 +247,12 @@ SK.dashboard = (function () {
     renderLegend(); renderRoomCard();
   }
   function findRoom(q) {
-    var m = /([АБПABPабпabp])\s*[-_ ]?\s*(\d{3}|\dС\d|\dC\d)/.exec(q || '');
+    q = String(q || '').trim();
+    if (B.room(q)) return q;
+    /* Номери як у розкладі: «310», «205А», «А109», «ауд. 3», «В4», «24П» */
+    var k = SK.scheduleImport.roomKey('к.9, а.' + q.replace(/^(ауд\.?|а\.)\s*/i, '').toUpperCase());
+    if (k && B.room(k)) return k;
+    var m = /([АБПABPабпabp])\s*[-_ ]?\s*(\d{3}|\dС\d|\dC\d)/.exec(q);
     if (!m) return null;
     var L2 = { A: 'А', B: 'Б', P: 'П', a: 'А', b: 'Б', p: 'П', 'а': 'А', 'б': 'Б', 'п': 'П' }[m[1]] || m[1].toUpperCase();
     var id = L2 + '-' + m[2].replace('C', 'С');
@@ -325,10 +330,29 @@ SK.dashboard = (function () {
   }
   function tipFor(r) {
     var n = now(), v = I3.read(r.id, n), s = S.status(r.id, n);
-    var h = '<b>' + esc(r.id) + '</b> · ' + esc(r.name);
+    var h = '<b>' + esc(r.label || r.id) + '</b> · ' + esc(r.name);
     if (r.bookable) h += '<br><span class="st ' + S.STATUS[s.status].css + '">' + S.STATUS[s.status].name + '</span>' + (s.lesson ? ' ' + esc(s.lesson.group) : '');
-    if (r.type !== 'stairs') h += '<br>' + v.temp + ' °C · CO₂ ' + v.co2 + ' · ' + v.people + ' ос.';
+    if (r.type !== 'stairs') h += '<br>' + v.temp + ' °C · CO₂ ' + v.co2 + ' · ' + peopleText(r, v);
     return h;
+  }
+
+  /* Крива «люди в аудиторії» за день (лічильник людей), малюється лише в розгорнутому блоці */
+  function drawPeople(r, n) {
+    var c = $('#rcPpl'); if (!c || !ui.rcPpl) return;
+    var pts = S.dayCurve(r.id, n, 5).map(function (x) { return { x: x.m, y: x.people }; });
+    SK.charts.line(c, [{ name: 'Людей', cls: 's1', values: pts }], { height: 130, unit: 'ос.', xMin: 7 * 60, xMax: 20 * 60,
+      xTicks: [480, 600, 720, 840, 960, 1080, 1200], xFmt: function (m) { return Math.floor(m / 60) + ':' + ('0' + Math.round(m % 60)).slice(-2); },
+      label: 'Кількість людей в аудиторії за день' });
+  }
+  /* Кількість людей бачить лише лічильник; де його немає — тільки факт руху з PIR */
+  function peopleText(r, v) {
+    if (DEV.hasCounter(r)) return v.people + ' ос.';
+    return v.people ? 'є рух' : 'руху немає';
+  }
+  function weekText(w) { return w === 1 ? '1-й тиждень' : w === 2 ? '2-й тиждень' : 'щотижня'; }
+  function lessonLine(l, G) {
+    return esc(l.subject) + ' <span class="muted">(' + esc(l.kind) + ')</span>, ' + (l.stream ? 'потік ' : '') + '<b>' + esc(l.group) + '</b>' +
+      (l.teacher ? ', ' + esc(l.teacher) : '');
   }
 
   /* ---------------- Картка аудиторії ---------------- */
@@ -341,7 +365,7 @@ SK.dashboard = (function () {
     if (ui.device) { renderDeviceCard(box); return; }
     if (!ui.room) { box.hidden = true; return; }
     var r = B.room(ui.room), n = now(), v = I3.read(r.id, n), s = S.status(r.id, n);
-    var h = '<div class="rc-h"><div class="grow"><h2>' + esc(r.id) + '</h2><div class="muted small">' + esc(r.name) + ' · ' + B.blockById(r.block).name +
+    var h = '<div class="rc-h"><div class="grow"><h2>' + esc(r.label || r.id) + '</h2><div class="muted small">' + esc(r.name) + ' · ' + B.blockById(r.block).name +
       ', ' + r.floor + ' пов. · ' + r.area + ' м²' + (r.capacity ? ' · ' + r.capacity + ' місць' : '') + (r.pcs ? ' · ' + r.pcs + ' ПК' : '') + '</div></div>' +
       '<button class="btn small" data-act="close" aria-label="Закрити">✕</button></div>';
     var G = role() === 'guest';
@@ -349,7 +373,8 @@ SK.dashboard = (function () {
     if (alarm) h += '<div class="note" style="border-left-color:var(--bad)"><b>' + SK.icon('alert', 'ico sm') + ' ' + esc(SEC.TYPES[alarm.type].name) + '</b><br>' + esc(alarm.note) + '</div>';
     if (r.bookable) {
       h += '<div style="margin-top:8px"><span class="st ' + S.STATUS[s.status].css + '">' + S.STATUS[s.status].name + '</span>';
-      if (s.lesson) h += ' — ' + esc(s.lesson.subject) + ', <b>' + esc(s.lesson.group) + '</b>, ' + esc(s.lesson.teacher) + (s.conflict && !G ? ' <span class="sev critical">конфлікт</span>' : '');
+      if (s.lesson) h += ' — ' + lessonLine(s.lesson, G) + (s.conflict && !G ? ' <span class="sev critical">конфлікт: ' + s.lessons.length + ' заняття</span>' : '') +
+        '<div class="small muted">' + s.pair.n + '-га пара, ' + s.pair.start + '–' + s.pair.end + ' · ' + weekText(s.lesson.week) + ' (зараз ' + s.week + '-й) · за списком ' + s.lesson.people + ' студ.</div>';
       if (s.booking) h += ' — ' + esc(s.booking.purpose) + ' (' + esc(s.booking.who) + ')';
       if (s.next) h += '<div class="small muted">Далі: ' + s.next.pair.n + '-га пара (' + s.next.pair.start + ') — ' +
         esc(s.next.lesson ? s.next.lesson.subject + ', ' + s.next.lesson.group : 'бронювання') + '</div>';
@@ -360,7 +385,7 @@ SK.dashboard = (function () {
         metric(v.temp + ' °C', 'Температура', 'thermo') +
         metric('<span class="lvl ' + SEN.co2Level(v.co2) + '">' + v.co2 + '</span>', 'CO₂, ppm', 'co2') +
         metric(v.hum + ' %', 'Вологість', 'drop') +
-        metric(v.people, 'Людей (PIR)', 'users') +
+        (DEV.hasCounter(r) ? metric(v.people, 'Людей (лічильник)', 'users') : metric(v.people ? 'є' : 'немає', 'Рух (PIR)', 'pir')) +
         metric(v.lightOn ? Math.round(v.lightLevel * 100) + ' %' : 'вимк.', 'Світло', 'bulb') +
         (G ? metric(esc(v.scName), 'Режим', 'layers') : metric(U.fmt(v.power / 1000, 2) + ' кВт', 'Потужність', 'bolt')) + '</div>' +
         '<div class="small muted">' + SEN.co2Text(v.co2) + ' · <span class="demo-badge">симуляція</span>' + (v.fault && !G ? ' · <span class="sev warning">датчик несправний</span>' : '') + '</div>';
@@ -383,7 +408,10 @@ SK.dashboard = (function () {
           (l ? esc(l.subject) + ' · ' + esc(l.group) + (!G && row.lessons.length > 1 ? ' <span class="sev critical">+' + (row.lessons.length - 1) + ' конфлікт</span>' : '') :
             row.booking ? '<span class="st booked">Бронь</span> ' + esc(row.booking.purpose) : '<span class="muted">вільно</span>') + '</span>';
       }).join('');
-      h += '<details><summary>Розклад на сьогодні' + (curRow ? ' · зараз: ' + esc(curRow) : '') + '</summary><div class="pairs">' + rowsH + '</div></details>';
+      h += '<details><summary>Розклад на сьогодні' + (curRow ? ' · зараз: ' + esc(curRow) : '') + '</summary><div class="pairs">' + rowsH + '</div>' +
+        '<div class="small muted">' + S.weekOf(n) + '-й тиждень · джерело — розклад ННІФТКН</div></details>';
+      if (DEV.hasCounter(r)) h += '<details id="rcPplD"' + (ui.rcPpl ? ' open' : '') + '><summary>Люди в аудиторії за день</summary><div id="rcPpl" class="ppl-chart"></div>' +
+        '<div class="small muted">Показ лічильника людей, крок 5 хв · <span class="demo-badge">симуляція за розкладом</span></div></details>';
     }
     var devs = role() === 'guest' ? [] : DEV.roomDevices(r).filter(function (d) { return allowedCats().indexOf(d.cat) >= 0; }), cab = role() === 'admin' ? DEV.cabinetFor(r) : null;
     var probs = devs.filter(function (d) { var s = DS.state(d, n).status; return s === 'fault' || s === 'alarm' || s === 'off'; }).length;
@@ -402,6 +430,9 @@ SK.dashboard = (function () {
       (role() !== 'guest' ? '<button class="btn small" data-act="energy" title="Споживання приміщення за добу">' + SK.icon('chart', 'ico sm') + 'Споживання</button>' +
         '<button class="btn small" data-act="log" title="Журнали датчиків і дверей приміщення">' + SK.icon('doc', 'ico sm') + 'Журнал</button>' : '') + '</div>');
     setCard(box, h, 'room:' + r.id);
+    drawPeople(r, n);
+    var pd = $('#rcPplD', box);
+    if (pd) pd.ontoggle = function () { ui.rcPpl = pd.open; drawPeople(r, n); };
     box.onclick = function (e) {
       var pw = e.target.closest('[data-pwr]');
       if (pw) { SK.adminTabs.toastCmd(SK.control.toggle(DEV.device(pw.dataset.pwr))); return; }
@@ -575,11 +606,11 @@ SK.dashboard = (function () {
 
     if (!G) h += '<h3>Останні події</h3>' + eventsTable(store.state.events.slice(0, 5), false);
 
-    h += '<h3>Оголошення для студентів</h3>';
+    h += '<h3>Оголошення</h3>';
     h += store.state.announcements.slice(0, 3).map(function (a) {
       return '<div class="small" style="margin-bottom:6px"><b>' + esc(a.from) + ':</b> ' + esc(a.text) + '</div>';
     }).join('');
-    if (SEC.can('announce')) h += '<div class="row"><input type="text" id="annText" class="grow" placeholder="Текст оголошення (з’явиться у студентському додатку)"><button class="btn small primary" id="annSend">Надіслати</button></div>';
+    if (SEC.can('announce')) h += '<div class="row"><input type="text" id="annText" class="grow" placeholder="Текст оголошення (з’явиться на інфотабло холів)"><button class="btn small primary" id="annSend">Надіслати</button></div>';
     p.innerHTML = h;
     bindRoomRows(p);
     var s = $('#annSend', p);
@@ -601,10 +632,25 @@ SK.dashboard = (function () {
 
   /* ---- Аудиторії та розклад ---- */
   function rooms(p) {
-    var n = now(), rf = ui.rf;
-    var h = '<h2>Аудиторії та розклад</h2><div class="row" style="margin:8px 0">' +
-      sel('rfBlock', [['', 'Усі блоки'], ['A', 'Блок А'], ['B', 'Блок Б'], ['C', 'Перемичка']], rf.block) +
-      sel('rfFloor', [['', 'Усі поверхи'], ['0', '0 (хол)'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], rf.floor) +
+    var n = now(), rf = ui.rf, G = role() === 'guest', inf = S.info(), wk = S.weekOf(n);
+    var h = '<h2>Аудиторії та розклад</h2>';
+    /* Джерело розкладу */
+    h += '<div class="note src-note">' + SK.icon('calendar', 'ico sm') + ' <b>Розклад занять — реальний</b>: ' +
+      (inf.info.imported ? 'імпортований файл «' + esc(inf.info.name) + '» (' + U.fmtDateTime(new Date(inf.info.at)) + ')' :
+        '<a href="' + esc(inf.info.page) + '" target="_blank" rel="noopener">' + esc(inf.info.name) + '</a>') +
+      ' · ' + inf.lessons + ' занять, ' + inf.report.streams + ' потоків, ' + inf.groups + ' груп, ' + inf.report.rooms + ' аудиторій корпусу 9.' +
+      '<br>Зараз <b>' + wk + '-й тиждень</b> (чергування від 1 вересня). Кількість людей — симуляція за розкладом: розміри груп за курсом, ' +
+      'відвідуваність, запізнення, перерви; її показують лічильники людей в аудиторіях. <span class="demo-badge">симуляція присутності</span></div>';
+    if (SEC.can('schedule')) {
+      h += '<div class="row imp-row"><label class="btn small" title="JSON у форматі сайту розкладу ННІФТКН (src/data/schedule.json)">' + SK.icon('upload', 'ico sm') +
+        'Імпортувати JSON<input type="file" id="schFile" accept=".json,application/json" hidden></label>' +
+        (inf.info.imported ? '<button class="btn small" id="schReset">' + SK.icon('refresh', 'ico sm') + 'Повернути розклад з сайту</button>' : '') +
+        '<span class="small muted">Беруться заняття в аудиторіях корпусу 9; інші корпуси й онлайн пропускаються.</span></div>';
+      if (ui.impReport) h += importReport(ui.impReport);
+    }
+    h += '<div class="row" style="margin:8px 0">' +
+      sel('rfBlock', [['', 'Усі блоки'], ['A', 'Блок А'], ['B', 'Блок Б']], rf.block) +
+      sel('rfFloor', [['', 'Усі поверхи'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], rf.floor) +
       sel('rfStatus', [['', 'Усі статуси'], ['free', 'Вільні'], ['busy', 'Зайняті'], ['booked', 'Заброньовані']], rf.status) +
       sel('rfType', [['', 'Усі типи']].concat(Object.keys(B.types).filter(function (k) { return B.types[k].bookable; }).map(function (k) { return [k, B.types[k].name]; })), rf.type) +
       '</div>';
@@ -613,55 +659,74 @@ SK.dashboard = (function () {
       if (rf.floor && r.floor !== +rf.floor) return false;
       if (rf.type && r.type !== rf.type) return false;
       return !rf.status || S.status(r.id, n).status === rf.status;
-    });
-    h += '<div class="small muted">Знайдено: ' + list.length + '. Клік — показати на карті.</div><div class="tw"><table class="t"><thead><tr><th>Ауд.</th><th>Статус</th><th>Зараз</th><th>Далі</th></tr></thead><tbody>';
+    }).sort(function (a, b) { return a.floor - b.floor || a.label.localeCompare(b.label, 'uk', { numeric: true }); });
+    var busyN = 0, ppl = 0;
+    list.forEach(function (r) { if (S.status(r.id, n).status === 'busy') busyN++; ppl += SK.i3.read(r.id, n).people; });
+    h += '<div class="small muted">Знайдено: ' + list.length + ' · зайнято зараз ' + busyN + ' · людей в аудиторіях ' + ppl + ' (лічильники). Клік — показати на карті.</div>' +
+      '<div class="tw"><table class="t"><thead><tr><th>Ауд.</th><th>Статус</th><th>Зараз</th><th>Людей</th><th>Далі</th></tr></thead><tbody>';
     list.forEach(function (r) {
-      var s = S.status(r.id, n);
-      h += '<tr class="click" data-room="' + r.id + '"><td><b>' + r.id + '</b><div class="small muted">' + esc(B.types[r.type].name) + ', ' + r.capacity + ' м.</div></td>' +
-        '<td><span class="st ' + S.STATUS[s.status].css + '">' + S.STATUS[s.status].name + '</span></td>' +
-        '<td class="small">' + (s.lesson ? esc(s.lesson.group) + ' · ' + esc(s.lesson.subject) + '<div class="muted">' + esc(s.lesson.teacher) + '</div>' : s.booking ? esc(s.booking.purpose) : '—') + '</td>' +
-        '<td class="small">' + (s.next ? s.next.pair.start + ' ' + esc(s.next.lesson ? s.next.lesson.group : 'бронь') : '—') + '</td></tr>';
+      var s = S.status(r.id, n), v = SK.i3.read(r.id, n);
+      h += '<tr class="click" data-room="' + esc(r.id) + '"><td><b>' + esc(r.label) + '</b><div class="small muted">' + esc(B.types[r.type].name) + '</div></td>' +
+        '<td><span class="st ' + S.STATUS[s.status].css + '">' + S.STATUS[s.status].name + '</span>' + (s.conflict && !G ? '<div><span class="sev critical">конфлікт</span></div>' : '') + '</td>' +
+        '<td class="small">' + (s.lesson ? esc(s.lesson.group) + ' · ' + esc(s.lesson.subject) + '<div class="muted">' + esc(s.lesson.kind) + (s.lesson.teacher ? ' · ' + esc(s.lesson.teacher) : '') + '</div>' : s.booking ? esc(s.booking.purpose) : '—') + '</td>' +
+        '<td>' + (DEV.hasCounter(r) ? '<b>' + v.people + '</b>' : '<span class="muted">' + (v.people ? 'рух' : '—') + '</span>') + '</td>' +
+        '<td class="small">' + (s.next ? s.next.pair.start + (s.next.lesson ? '' : ' бронь') : '—') + '</td></tr>';
     });
     h += '</tbody></table></div>';
 
-    /* Конфлікти */
-    if (role() !== 'guest') {
-    var cf = S.conflicts();
-    h += '<h3>Перевірка конфліктів розкладу</h3>';
-    if (!cf.length) h += '<div class="small" style="color:var(--good)">● Конфліктів не виявлено.</div>';
-    else h += cf.map(function (c) {
-      var l = c.lessons[0];
-      return '<div class="card" style="box-shadow:none"><span class="sev critical">' + (c.kind === 'room' ? 'Аудиторія' : 'Група') + '</span> ' +
-        U.DAYS[l.day] + ', ' + l.pair + '-га пара — ' + (c.kind === 'room' ? '<b>' + l.room + '</b>' : '<b>' + l.group + '</b>') + ':<div class="small">' +
-        c.lessons.map(function (x) {
-          return esc(x.group + ' · ' + x.subject + ' · ' + x.room) + (x.imported ? ' <span class="muted">(імпорт)</span>' : '') +
-            (SEC.can('schedule') ? ' <button class="btn small danger" data-rm="' + x.id + '">зняти</button>' : '');
-        }).join('<br>') + '</div></div>';
-    }).join('');
-
-    /* Додавання заняття */
-    if (SEC.can('schedule')) {
-    h += '<h3>Зміни розкладу</h3>';
-    if (SEC.can('schedule')) {
-      h += '<div class="form-grid">' +
-        '<label>Аудиторія' + sel('alRoom', B.bookableRooms().map(function (r) { return [r.id, r.id]; }), ui.room && B.room(ui.room).bookable ? ui.room : '') + '</label>' +
-        '<label>Група' + sel('alGroup', S.groups.map(function (g) { return [g.id, g.id]; })) + '</label>' +
-        '<label>День' + sel('alDay', [1, 2, 3, 4, 5].map(function (d) { return [d, U.DAYS[d]]; }), U.dow(n) <= 5 ? U.dow(n) : 1) + '</label>' +
-        '<label>Пара' + sel('alPair', S.PAIRS.map(function (x) { return [x.n, x.n + ' (' + x.start + ')']; })) + '</label>' +
-        '<label style="grid-column:1/3">Дисципліна<input type="text" id="alSubj" value="Консультація"></label></div>' +
-        '<div class="row" style="margin-top:8px"><button class="btn primary small" id="alAdd">Додати з перевіркою конфліктів</button></div>';
-    } else h += lockedNote('Внесення змін до розкладу');
+    /* Розклад групи (обидва тижні) */
+    var gs = S.groups;
+    if (!ui.schGroup || !gs.some(function (g) { return g.id === ui.schGroup; })) ui.schGroup = (gs.filter(function (g) { return g.id === '424'; })[0] || gs[0] || {}).id;
+    h += '<h3>Розклад групи</h3><div class="row">' + sel('schGroup', gs.map(function (g) { return [g.id, g.id + ' · ' + g.specialtyName]; }), ui.schGroup) + '</div>';
+    var gi = S.groupInfo(ui.schGroup), gw = S.groupWeek(ui.schGroup);
+    h += '<div class="small muted">' + esc(gi.level) + (gi.course ? ', ' + gi.course + ' курс' : '') + ' · орієнтовно ' + gi.size + ' студентів (за курсом, у розкладі чисельності немає) · ' +
+      gw.length + ' занять у корпусі 9</div>';
+    if (gw.length) {
+      h += '<div class="tw"><table class="t grp-week"><thead><tr><th>День</th><th>Пара</th><th>Тиждень</th><th>Заняття</th><th>Ауд.</th></tr></thead><tbody>' + gw.map(function (l) {
+        var cur = U.dow(n) === l.day && (!l.week || l.week === wk);
+        return '<tr class="click' + (cur ? ' today' : '') + '" data-room="' + esc(l.room) + '"><td>' + U.DAYS_SHORT[l.day] + '</td><td>' + l.pair + ' <span class="muted small">' + S.PAIRS[l.pair - 1].start + '</span></td>' +
+          '<td class="small">' + weekText(l.week) + '</td><td class="small">' + esc(l.subject) + ' <span class="muted">(' + esc(l.kind) + ')</span>' +
+          (l.stream ? '<div class="muted">потік: ' + esc(l.group) + '</div>' : '') + (l.teacher ? '<div class="muted">' + esc(l.teacher) + '</div>' : '') + '</td><td><b>' + esc((B.room(l.room) || {}).label || l.room) + '</b></td></tr>';
+      }).join('') + '</tbody></table></div>';
     }
 
-    var bk = store.state.bookings;
-    if (role() !== 'guest') h += '<h3>Бронювання (' + bk.length + ')</h3>' + (bk.length ? '<table class="t"><tbody>' + bk.map(function (b) {
-      return '<tr><td><b>' + b.room + '</b></td><td class="small">' + b.date + ', ' + b.pair + '-га пара<br>' + esc(b.purpose) + ' · ' + esc(b.who) + '</td><td>' +
-        (SEC.can('ack') ? '<button class="btn small" data-cancel="' + b.id + '">Скасувати</button>' : '') + '</td></tr>';
-    }).join('') + '</tbody></table>' : '<div class="small muted">Бронювань немає.</div>');
+    /* Конфлікти */
+    if (!G) {
+      var cf = S.conflicts();
+      h += '<h3>Перевірка конфліктів розкладу</h3>';
+      if (!cf.length) h += '<div class="small" style="color:var(--good)">● Конфліктів не виявлено.</div>';
+      else h += '<details><summary>Знайдено ' + cf.length + ' (так у джерелі: різні заняття в одній аудиторії або група у двох аудиторіях одночасно)</summary>' + cf.map(function (c) {
+        var l = c.lessons[0];
+        return '<div class="card" style="box-shadow:none"><span class="sev critical">' + (c.kind === 'room' ? 'Аудиторія' : 'Група') + '</span> ' +
+          U.DAYS[l.day] + ', ' + l.pair + '-га пара, ' + (c.weeks.length > 1 ? 'обидва тижні' : c.weeks[0] + '-й тиждень') + ' — ' +
+          (c.kind === 'room' ? '<b>' + esc((B.room(l.room) || {}).label || l.room) + '</b>' : '<b>' + esc(c.lessons.map(function (x) { return x.group; }).filter(function (g, i, a) { return a.indexOf(g) === i; }).join(' / ')) + '</b>') + ':<div class="small">' +
+          c.lessons.map(function (x) {
+            return esc(x.group + ' · ' + x.subject + ' · ' + ((B.room(x.room) || {}).label || x.room) + (x.teacher ? ' · ' + x.teacher : '')) +
+              (SEC.can('schedule') ? ' <button class="btn small danger" data-rm="' + x.id + '">зняти</button>' : '');
+          }).join('<br>') + '</div></div>';
+      }).join('') + '</details>';
+
+      /* Додавання заняття */
+      if (SEC.can('schedule')) {
+        h += '<h3>Зміни розкладу</h3><div class="form-grid">' +
+          '<label>Аудиторія' + sel('alRoom', B.bookableRooms().map(function (r) { return [r.id, r.label]; }), ui.room && B.room(ui.room).bookable ? ui.room : '') + '</label>' +
+          '<label>Група' + sel('alGroup', S.groups.map(function (g) { return [g.id, g.id]; }), ui.schGroup) + '</label>' +
+          '<label>День' + sel('alDay', [1, 2, 3, 4, 5].map(function (d) { return [d, U.DAYS[d]]; }), U.dow(n) <= 5 ? U.dow(n) : 1) + '</label>' +
+          '<label>Пара' + sel('alPair', S.PAIRS.map(function (x) { return [x.n, x.n + ' (' + x.start + ')']; })) + '</label>' +
+          '<label>Тиждень' + sel('alWeek', [[0, 'щотижня'], [1, '1-й'], [2, '2-й']], 0) + '</label>' +
+          '<label>Дисципліна<input type="text" id="alSubj" value="Консультація"></label></div>' +
+          '<div class="row" style="margin-top:8px"><button class="btn primary small" id="alAdd">Додати з перевіркою конфліктів</button></div>';
+      }
+
+      var bk = store.state.bookings;
+      h += '<h3>Бронювання (' + bk.length + ')</h3>' + (bk.length ? '<table class="t"><tbody>' + bk.map(function (b) {
+        return '<tr><td><b>' + esc((B.room(b.room) || {}).label || b.room) + '</b></td><td class="small">' + b.date + ', ' + b.pair + '-га пара<br>' + esc(b.purpose) + ' · ' + esc(b.who) + '</td><td>' +
+          (SEC.can('ack') ? '<button class="btn small" data-cancel="' + b.id + '">Скасувати</button>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table>' : '<div class="small muted">Бронювань немає.</div>');
     }
     if (SEC.can('book')) {
       h += '<div class="form-grid" style="margin-top:8px">' +
-        '<label>Аудиторія' + sel('bkRoom', B.bookableRooms().map(function (r) { return [r.id, r.id + ' · ' + r.name]; }), ui.room && B.room(ui.room).bookable ? ui.room : '') + '</label>' +
+        '<label>Аудиторія' + sel('bkRoom', B.bookableRooms().map(function (r) { return [r.id, r.label + ' · ' + r.name]; }), ui.room && B.room(ui.room).bookable ? ui.room : '') + '</label>' +
         '<label>Пара (сьогодні)' + sel('bkPair', S.PAIRS.map(function (x) { return [x.n, x.n + ' (' + x.start + ')']; })) + '</label>' +
         '<label style="grid-column:1/3">Мета<input type="text" id="bkPurpose" value="Консультація / самостійна робота"></label></div>' +
         '<div class="row" style="margin-top:8px"><button class="btn small primary" id="bkAdd">Забронювати</button><span class="small muted">Події інституту — вкладка <a href="#" data-goto="events">«Події»</a>.</span></div>';
@@ -672,8 +737,22 @@ SK.dashboard = (function () {
     ['Block', 'Floor', 'Status', 'Type'].forEach(function (k) {
       $('#rf' + k, p).onchange = function (e) { ui.rf[k.toLowerCase()] = e.target.value; renderPanel(); };
     });
+    var sg = $('#schGroup', p); if (sg) sg.onchange = function (e) { ui.schGroup = e.target.value; renderPanel(); };
+    var sf = $('#schFile', p);
+    if (sf) sf.onchange = function () {
+      var f = sf.files[0]; if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var res = S.importJson(String(rd.result), f.name);
+        ui.impReport = res;
+        U.toast(res.error ? '✕ ' + res.error : 'Розклад імпортовано: ' + res.report.lessons + ' занять', res.error ? 'bad' : 'good');
+        renderPanel();
+      };
+      rd.readAsText(f, 'utf-8');
+    };
     p.onclick = function (e) {
       var b = e.target.closest('button'); if (!b) return;
+      if (b.id === 'schReset') { S.resetImport(); ui.impReport = null; U.toast('Повернуто розклад з сайту інституту', 'good'); }
       if (b.dataset.rm) { S.removeLesson(b.dataset.rm); U.toast('Заняття знято з розкладу', 'good'); }
       if (b.dataset.cancel) S.cancelBooking(b.dataset.cancel);
       if (b.id === 'bkAdd') {
@@ -682,10 +761,18 @@ SK.dashboard = (function () {
       }
       if (b.id === 'alAdd') {
         var err = S.addLesson({ room: $('#alRoom', p).value, group: $('#alGroup', p).value, day: +$('#alDay', p).value, pair: +$('#alPair', p).value,
-          subject: $('#alSubj', p).value || 'Заняття', teacher: 'призначає деканат', kind: 'Практична' });
+          week: +$('#alWeek', p).value, subject: $('#alSubj', p).value || 'Заняття', teacher: '', kind: 'Практична', type: 'practice' });
         U.toast(err ? '✕ ' + err : 'Заняття додано без конфліктів', err ? 'bad' : 'good');
       }
     };
+  }
+  function importReport(res) {
+    if (res.error && !res.report) return '<div class="note bad-note">' + esc(res.error) + '</div>';
+    var r = res.report, unk = Object.keys(r.unknownRoom || {});
+    return '<div class="note' + (res.error ? ' bad-note' : '') + '">' + (res.error ? esc(res.error) + '<br>' : '<b>Імпорт:</b> ') +
+      'рядків ' + r.total + ' · корпус 9: ' + r.k9 + ' → ' + r.lessons + ' занять (' + r.streams + ' потоків), ' + r.groups + ' груп' +
+      ' · інші корпуси ' + r.otherBuilding + ', онлайн ' + r.online + ', без аудиторії ' + r.noRoom + (r.badRow ? ', некоректних ' + r.badRow : '') +
+      (unk.length ? '<br>Аудиторій немає в моделі корпусу (пропущено): ' + esc(unk.join(', ')) : '') + '</div>';
   }
   function sel(id, opts, val) {
     return '<select id="' + id + '">' + opts.map(function (o) {
@@ -944,7 +1031,7 @@ SK.dashboard = (function () {
       return '<tr><td><b>' + esc(c.id) + '</b><div class="small muted">' + esc(where) + '</div></td><td class="small">' + esc(ctrlSummary(c.controllers)) +
         '<div class="muted"><code>' + esc(c.mqtt) + '</code></div></td><td><span class="lvl good">онлайн</span> <span class="demo-badge">сим.</span></td></tr>';
     }).join('') + '</tbody></table>';
-    h += '<h3>Схема інтеграції</h3><div class="small">Датчики → контролери Atom → MQTT-брокер → сервер «Розумного корпусу» → вебпанель і студентський додаток. ' +
+    h += '<h3>Схема інтеграції</h3><div class="small">Датчики → контролери Atom → MQTT-брокер → сервер «Розумного корпусу» → вебпанель та інфотабло. ' +
       'Зчитувачі доступу, онлайн-дошки й камери — окремими мережевими сервісами через той самий сервер. ' +
       'Поточне джерело даних: <b>' + (I3.mode === 'sim' ? 'симулятор' : 'MQTT') + '</b>. Деталі — docs/architecture.md.</div>';
     p.innerHTML = h;
@@ -1121,7 +1208,7 @@ SK.dashboard = (function () {
       vape: 'Реагує на аерозоль і дим. Подія йде в журнал безпеки черговому; пожежна сигналізація не задіяна.',
       signage: 'Показує розклад поверху, вільні аудиторії, оголошення й навігацію. Дані — з того самого сервера.',
       exhaust: 'Окрема витяжна вентиляція кімнати для куріння: розрідження щодо коридору, вмикається за PIR і працює ще 10 хв.',
-      parking: 'Датчики присутності авто на кожному місці; дані — на табло в’їзду й у студентському додатку.'
+      parking: 'Датчики присутності авто на кожному місці; дані — на табло в’їзду й у панелі.'
     }[d.kind];
     if (extra) h += '<details><summary>Про пристрій</summary><div class="small muted">' + esc(extra) + '</div></details>';
 

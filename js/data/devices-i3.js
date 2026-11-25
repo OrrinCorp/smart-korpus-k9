@@ -33,7 +33,9 @@ SK.devicesI3 = (function () {
   };
 
   var KINDS = {
-    pir:       { cat: 'sensors', ic: 'pir', emoji: '👁', name: 'PIR-датчик присутності' },
+    pir:       { cat: 'sensors', ic: 'pir', emoji: '👁', name: 'PIR-датчик руху (присутність так/ні)' },
+    counter:   { cat: 'sensors', ic: 'users', emoji: '👥', name: 'Лічильник людей у зоні (Milesight VS121-P, PoE)' },
+    counterDoor: { cat: 'sensors', ic: 'users', emoji: '👥', name: 'Лічильник проходів над дверима (Milesight VS133-P ToF, PoE)' },
     temp:      { cat: 'sensors', ic: 'thermo', emoji: '🌡', name: 'Термодатчик 1-Wire' },
     co2:       { cat: 'sensors', ic: 'co2', emoji: '💨', name: 'Датчик CO₂/T/RH (NDIR, Modbus)' },
     light:     { cat: 'control', ic: 'bulb', emoji: '💡', name: 'Група LED-освітлення (димована)' },
@@ -154,6 +156,19 @@ SK.devicesI3 = (function () {
       if (big) put('pir', at(r, 0.25, 0.5), top);
     }
     if (r.bookable || r.type === 'library' || r.type === 'admin') put('co2', at(r, 0.8, 0.2), wall);
+    /* Лічильники людей (лише аудиторії): PIR бачить тільки рух, кількість дають ці датчики.
+       VS121-P на стелі рахує людей у зоні ≈ 4,9 × 6,4 м (висота 3,5 м) — по одному на ≈ 31 м²;
+       у великих залах (> 96 м²) — VS133-P над входом рахує вхід/вихід (і другий — над запасним). */
+    if (r.bookable) {
+      if (r.area <= 96) {
+        var nc = Math.max(1, Math.ceil(r.area / 31)), cols = Math.min(nc, 2), rows = Math.ceil(nc / cols);
+        for (var ci = 0; ci < nc; ci++) put('counter', at(r, 0.1 + 0.8 * (ci % cols + 0.5) / cols, 0.12 + 0.6 * (Math.floor(ci / cols) + 0.5) / rows), top - 0.05,
+          { label: 'Зона ' + (ci + 1) + ' з ' + nc });
+      } else {
+        put('counterDoor', inward(r, door(r), 0.4), r.z0 + 2.4, { label: 'Над входом' });
+        if (r.area > 150) put('counterDoor', inward(r, far(r), 0.4), r.z0 + 2.4, { label: 'Над запасним виходом' });
+      }
+    }
     if (r.type === 'lecture' || r.type === 'computer') put('hvac', at(r, 0.5, 0.88), top);
     var ext = exterior(r);
     if (r.bookable && ext.length) put('blinds', ext[0], r.z0 + r.h - 0.4);
@@ -247,6 +262,8 @@ SK.devicesI3 = (function () {
 
   return { CATALOG: CATALOG, CATS: CATS, KINDS: KINDS, cabinets: cabinets, devices: devices,
     cabinet: function (id) { return cabinets.filter(function (c) { return c.id === id; })[0]; },
-    device: function (id) { return byId[id]; }, doorOf: door, exterior: exterior, roomDevices: roomDevices, cabinetFor: cabinetFor, totals: totals,
+    device: function (id) { return byId[id]; }, doorOf: door,
+    /* Чи є в приміщенні лічильник людей (інакше відомо лише «є рух / немає» від PIR) */
+    hasCounter: function (room) { return (byRoom[room.id || room] || []).some(function (d) { return d.kind === 'counter' || d.kind === 'counterDoor'; }); }, exterior: exterior, roomDevices: roomDevices, cabinetFor: cabinetFor, totals: totals,
     vendorUrl: 'https://i3engineering.com/atom-series' };
 })();

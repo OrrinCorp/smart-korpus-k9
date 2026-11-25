@@ -1,26 +1,27 @@
 /* Сховище стану + шина подій + симульований годинник.
  *
- * Стан зберігається в localStorage, тому панель керування (index.html) і
- * студентський додаток (student.html), відкриті в сусідніх вкладках одного
- * браузера, бачать спільні бронювання, події та оголошення (подія 'storage').
+ * Стан зберігається в localStorage, тому кілька вкладок панелі керування
+ * (index.html) в одному браузері бачать спільні бронювання, події та
+ * оголошення (подія 'storage').
  * У реальному розгортанні цей модуль замінюється викликами REST/WebSocket API
  * сервера (див. docs/architecture.md).
  */
 SK.store = (function () {
-  var KEY = 'sk9_state_v2';          // v2: 5 поверхів (0–4), сценарії, доступ за відбитками, живлення
+  var KEY = 'sk9_state_v3';          // v3: реальні номери аудиторій і реальний розклад (v2: 5 поверхів, сценарії, доступ, живлення)
   var listeners = {};
 
   function defaults() {
     return {
-      version: 2,
+      version: 3,
       role: 'guest',                 // guest | responsible | admin
       clock: { baseReal: Date.now(), baseSim: defaultSimStart(), speed: 1 },
       bookings: [],                  // {id, room, date, pair, who, purpose, createdAt}
       customLessons: [],             // заняття, додані адміністратором
       removedLessons: [],            // id занять, знятих адміністратором
+      scheduleImport: null,          // {name, at, rows} — власний JSON розкладу (null = знімок з сайту інституту)
       events: [],                    // журнал подій безпеки та енергетики
       announcements: [
-        { id: 'an-1', ts: Date.now(), text: 'Вітаємо в демо-версії «Розумного корпусу»! Усі дані тут вигадані.', from: 'Адміністрація' }
+        { id: 'an-1', ts: Date.now(), text: 'Вітаємо в демо-версії «Розумного корпусу»! Розклад занять — реальний (ННІФТКН ЧНУ), присутність людей і показники датчиків — симуляція.', from: 'Адміністрація' }
       ],
       overrides: {},                 // roomId → {sc, until} — ручний сценарій
       scenarioCfg: null,             // null = типова конфігурація сценаріїв і правил

@@ -9,7 +9,7 @@ SK.adminTabs = (function () {
   /* =================== ПОДІЇ ТА ОГОЛОШЕННЯ =================== */
   function events(p) {
     var n = D().now(), list = UE.upcoming(new Date(n.getTime() - 86400000 * 7), 30), canE = SEC.can('events');
-    var h = '<h2>Розклад подій</h2><div class="muted small">Події бачать студенти в застосунку. Подія з аудиторією автоматично бронює її (синій колір на карті).</div>';
+    var h = '<h2>Розклад подій</h2><div class="muted small">Події показуються на інфотабло й у розкладі аудиторій. Подія з аудиторією автоматично бронює її (синій колір на карті).</div>';
     h += '<div class="tw"><table class="t"><thead><tr><th>Дата</th><th>Подія</th><th>Місце</th><th></th></tr></thead><tbody>' + list.map(function (e) {
       var past = e.date < U.dateKey(n);
       return '<tr' + (past ? ' style="opacity:.55"' : '') + '><td class="small">' + e.date.slice(8) + '.' + e.date.slice(5, 7) + '<br>' + e.start + '–' + e.end + '</td><td><b>' + esc(e.title) + '</b>' +
@@ -61,7 +61,8 @@ SK.adminTabs = (function () {
   function audOptions() {
     var o = [['all', 'Усі']];
     [1, 2, 3, 4].forEach(function (c) { o.push(['course:' + c, c + ' курс']); });
-    SK.scheduleData.specialties.forEach(function (s) { o.push([s.code, s.name]); });
+    var sp = {};
+    S.groups.forEach(function (g) { if (g.specialty && !sp[g.specialty]) { sp[g.specialty] = 1; o.push([g.specialty, g.specialtyName]); } });
     S.groups.forEach(function (g) { o.push([g.id, 'Група ' + g.id]); });
     return o;
   }
@@ -288,7 +289,7 @@ SK.adminTabs = (function () {
   }
   function control(p) {
     var n = D().now(), adm = SEC.can('doors'), canS = SEC.can('scenario');
-    var r = B.room(st.ctlRoom || D().ui.room || 'А-201') || B.room('А-201'); st.ctlRoom = r.id;
+    var r = B.room(st.ctlRoom || D().ui.room || 'А-205') || B.room('А-205'); st.ctlRoom = r.id;
     var fs = FL.summary(n), ps = PW.state(n), alarms = SEC.active().filter(function (e) { return e.sev === 'critical' || e.sev === 'serious'; }).length;
     var offs = CT.offList(), offIds = Object.keys(offs);
     var h = '<div class="row"><h2 class="grow">Диспетчерська · А-001</h2><button class="btn small" data-ct="admRoom" title="Показати адміністративне приміщення на карті">' + SK.icon('target', 'ico sm') + 'А-001 на карті</button></div><div class="small muted">Робоче місце оператора: стан корпусу, ручне керування пристроями й дверима, журнал команд.</div>';

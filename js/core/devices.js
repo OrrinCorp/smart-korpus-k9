@@ -59,7 +59,9 @@ SK.devices = (function () {
 
     var v = dev.room ? SK.i3.read(dev.room, d) : null, m = minutes(d);
     switch (dev.kind) {
-      case 'pir': res.status = v.people ? 'active' : 'idle'; res.value = v.people ? 'рух · ' + v.people + ' ос.' : 'нікого'; break;
+      case 'pir': res.status = v.people ? 'active' : 'idle'; res.value = v.people ? 'є рух' : 'руху немає'; break;
+      case 'counter': case 'counterDoor':
+        res.status = v.people ? 'active' : 'idle'; res.value = v.people + ' ос. в аудиторії'; break;
       case 'temp': res.value = v.temp + ' °C'; break;
       case 'co2': res.value = v.co2 + ' ppm · ' + v.hum + ' %'; if (v.co2 >= 1200) res.status = 'active'; break;
       case 'light': res.status = v.lightOn ? 'active' : 'idle'; res.value = v.lightOn ? Math.round(v.lightLevel * 100) + ' %' : 'вимкнено'; break;

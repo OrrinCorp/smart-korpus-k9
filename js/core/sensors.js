@@ -34,7 +34,7 @@ SK.sensors = (function () {
       if (lastEnd === null || s.e > lastEnd) lastEnd = s.e;
     });
     var seed = U.hash01(roomId + '|' + Math.floor(date.getTime() / 300000));
-    var people = cur ? Math.max(0, Math.round(cur.people * (0.75 + 0.25 * U.hash01(roomId + cur.s + U.dateKey(date))))) : 0;
+    var people = S.peopleAt(roomId, date);          // симуляція присутності за розкладом (js/core/schedule.js)
     var outage = SK.power ? SK.power.isOutage(date) : false;
     var smk = r.type === 'smoking' ? smoking(roomId, date, m, day) : null;
     if (smk) people = smk.people;

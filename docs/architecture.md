@@ -19,7 +19,7 @@ flowchart LR
   BR --> SRV[Сервер «Розумного корпусу»<br>API + база подій]
   RZ[Офіційний розклад ЧНУ] -. за дозволом .-> SRV
   SRV -- WebSocket / REST --> WEB[Панель керування]
-  SRV -- WebSocket / REST --> STU[Студентський додаток]
+  SRV -- WebSocket / REST --> TAB[Інфотабло холів]
   FIRE[Пожежна сигналізація] -. лише стан, «сухий контакт» .-> A3
 ```
 
@@ -32,13 +32,15 @@ flowchart LR
 ```mermaid
 flowchart LR
   BLD[data/building.js] --> SCH[core/schedule.js]
-  SD[data/schedule-data.js] --> SCH
+  RS[data/real-schedule.js<br>знімок розкладу ННІФТКН] --> IMP[core/schedule-import.js]
+  IMP --> SCH
+  RS --> BLD
   SCH --> SEN[core/sensors.js<br>СИМУЛЯТОР]
   SEN --> I3[core/i3-adapter.js<br>sim | mqtt]
   I3 --> EN[core/energy.js]
   I3 --> UI
   SEC[core/security.js] --> UI
-  EN --> UI[ui/dashboard.js · student/app.js]
+  EN --> UI[ui/dashboard.js]
   ST[(core/store.js<br>localStorage)] <--> UI
   UI --> V[viewer/viewer3d.js]
 ```
@@ -74,4 +76,4 @@ chnu/k9/events                               → {"type":"door_forced", "room":"
 
 - Ролі в прототипі перемикаються без пароля, щоб демонструвати різні можливості. У робочій версії роль видає сервер.
 - Прототип нічим не керує фізично: усі «відчинити двері» та сценарії — симуляція.
-- Персональні дані не зберігаються. Бронювання підписуються як «Студент КН-21».
+- Персональні дані не зберігаються. Бронювання підписуються роллю («Відповідальна особа»). Розклад занять — відкриті дані інституту (групи й викладачі — як на сайті розкладу).

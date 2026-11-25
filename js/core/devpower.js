@@ -40,6 +40,8 @@ SK.devpower = (function () {
     zkAtlas:  { t: 'ZKTeco Atlas Bio (контролер доступу): 9 Вт', url: 'https://www.zkteco.com/en/Atlas_Series/Atlas-Bio-Series' },
     halo:     { t: 'HALO Smart Sensor 3C (вейп-детектор): PoE 802.3af, 11 Вт', url: 'https://www.pelco.com/fs/documents/pelco-halo-smart-sensor-3c-3pc-specsheet-en-100626.pdf' },
     hikCam:   { t: 'Hikvision DS-2CD2143G2-IU (4 Мп купольна): PoE макс. 6,5 Вт', url: 'https://www.hikvision.com/ro/products/IP-Products/Network-Cameras/acusense-series/ds-2cd2143g2-iu' },
+    vs121:    { t: 'Milesight VS121-P (лічильник людей у зоні): 4,5 Вт від PoE 802.3af', url: 'https://www.milesight.com/iot/product/lorawan-sensor/vs121' },
+    vs133:    { t: 'Milesight VS133-P (ToF-лічильник проходів): типово 9,4 Вт, макс. 23,8 Вт (PoE 802.3at)', url: 'https://resource.milesight.com/milesight/iot/document/vs133-p-datasheet-en.pdf' },
     u6:       { t: 'Ubiquiti U6 Lite (Wi-Fi 6): макс. 12 Вт', url: 'https://techspecs.ui.com/unifi/wifi/u6-lite' },
     usw:      { t: 'UniFi Enterprise 24 PoE (ядро L3): макс. 60 Вт без PoE-навантаження', url: 'https://techspecs.ui.com/unifi/switching/usw-enterprise-24-poe' },
     dahuaSw:  { t: 'Dahua PFS4226-24ET-240 (PoE-комутатор): 10 Вт без навантаження', url: 'https://www.dahuasecurity.com/uk/products/All-Products/Transmission/PoE-Switches/Desktop-PoE-Switch/PFS4226-24ET-240' },
@@ -49,6 +51,8 @@ SK.devpower = (function () {
   };
   var PASSPORT = {
     pir:       { avg: 0.36, max: 0.54, stby: 0.36, src: 'dahuaPir', how: 'постійно' },
+    counter:   { avg: 4.5, max: 4.5, stby: 4.5, src: 'vs121', how: 'постійно (PoE)' },
+    counterDoor: { avg: 9.4, max: 23.8, stby: 9.4, src: 'vs133', how: 'постійно, типово 9,4 Вт (PoE)' },
     temp:      { avg: 0.005, max: 0.0075, stby: 0.005, src: 'ref', ref: true, how: 'постійно (1-Wire DS18B20, ≈ 1 мА @ 5 В під час вимірювання)' },
     co2:       { avg: 0.5, max: 2, stby: 0.5, src: 'belimo', how: 'постійно' },
     pm:        { avg: 0.6, max: 1.5, stby: 0.6, src: 'ref', ref: true, how: 'постійно' },

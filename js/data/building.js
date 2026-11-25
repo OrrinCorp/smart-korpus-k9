@@ -113,14 +113,17 @@ SK.building = (function () {
     }
   })();
 
-  /* ---- Блок Б: коридор уздовж осі x ---- */
+  /* ---- Блок Б: коридор уздовж осі x ----
+     Поверх 0 — потокові аудиторії 1, 2, 3, 7, 8, 9 (реальний розклад), поверх 1 — дрібніший
+     поділ, бо там 12 аудиторій розкладу. sw/nw — ширини приміщень південного/північного ряду. */
   (function () {
     var plan = {
-      0: { s: ['service', 'office', 'office', 'tech'], sn: ['Гардероб блоку Б', 'Методичний кабінет', 'Кабінет інженера', 'Насосна / ІТП'],
-           n: ['office', 'office', 'service', 'stairs', 'wc'], nn: ['Кафедра (довідка)', 'Кабінет завгоспа', 'Студентське кафе'],
-           ext: [['hall', 'Вестибюль блоку Б'], ['tech', 'Склад обладнання']] },
-      1: { s: ['lecture', 'seminar', 'lab', 'lab'], n: ['seminar', 'office', 'lab', 'stairs', 'wc'],
-           ext: [['lecture', 'Велика лекційна зала'], ['cowork', 'Студентський коворкінг']] },
+      0: { s: ['lecture', 'lecture', 'tech'], sw: [16, 8, 8], sn: [null, null, 'Насосна / ІТП'],
+           n: ['lecture', 'lecture', 'service', 'stairs', 'wc'], nn: [null, null, 'Студентське кафе'],
+           ext: [['lecture', 'Потокова аудиторія'], ['lecture', 'Потокова аудиторія']] },
+      1: { s: ['lecture', 'seminar', 'lab', 'lab', 'seminar', 'lab'], sw: [6, 5, 5, 5, 5, 6],
+           n: ['seminar', 'office', 'lab', 'seminar', 'stairs', 'wc'], nw: [6, 6, 6, 6, 4, 4],
+           ext: [['lecture', 'Велика лекційна зала', 2, 11], ['lecture', 'Лекційна аудиторія', 11, 20], ['cowork', 'Студентський коворкінг']] },
       2: { s: ['computer', 'computer', 'seminar', 'lab'], n: ['seminar', 'office', 'computer', 'stairs', 'wc'],
            ext: [['lecture', 'Потокова аудиторія'], ['seminar', 'Конференц-зала']] },
       3: { s: ['seminar', 'lab', 'lab', 'computer'], n: ['seminar', 'office', 'lab', 'stairs', 'wc'],
@@ -129,16 +132,19 @@ SK.building = (function () {
            ext: [['lecture', 'Лекційна аудиторія'], ['lab', 'Науково-дослідна лабораторія']] }
     };
     for (var f = 0; f <= 4; f++) {
-      var P = plan[f], n = 1, x = 2, i;
-      for (i = 0; i < 4; i++) { addRoom('B', f, f + pad2(n++), P.s[i], x, x + 8, 0, 9, P.sn && P.sn[i]); x += 8; }
-      var nw = [8, 8, 8, 4, 4]; x = 2;
+      var P = plan[f], n = 1, x = 2, i, sw = P.sw || [8, 8, 8, 8], nw = P.nw || [8, 8, 8, 4, 4];
+      for (i = 0; i < sw.length; i++) { addRoom('B', f, f + pad2(n++), P.s[i], x, x + sw[i], 0, 9, P.sn && P.sn[i]); x += sw[i]; }
+      x = 2;
       for (i = 0; i < nw.length; i++) {
         if (P.n[i] === 'wc') addRoom('B', f, f + pad2(n++), 'wc', x, x + nw[i], 12, 16.5, 'Санвузол жіночий');
         else addRoom('B', f, f + pad2(n++), P.n[i], x, x + nw[i], 12, 21, P.n[i] === 'stairs' ? 'Сходова клітка' : P.nn && P.nn[i]);
         x += nw[i];
       }
-      addRoom('B', f, f + pad2(n++), P.ext[0][0], 2, 20, 21, 34, P.ext[0][1]);
-      addRoom('B', f, f + pad2(n++), P.ext[1][0], 20, 30, 21, 34, P.ext[1][1]);
+      var ex = 2;
+      P.ext.forEach(function (e, k) {
+        var a = e[2] != null ? e[2] : ex, b = e[3] != null ? e[3] : (k === P.ext.length - 1 ? 30 : 20);
+        addRoom('B', f, f + pad2(n++), e[0], a, b, 21, 34, e[1]); ex = b;
+      });
       /* Додатково (нумерація в кінці): чоловічий санвузол, кімната для куріння, венткамера її витяжки */
       addRoom('B', f, f + pad2(n++), 'wc', 30, 34, 16.5, 21, 'Санвузол чоловічий');
       addRoom('B', f, f + pad2(n++), 'smoking', 30, 34, 21, 27, 'Кімната для куріння (біля сходів)');
@@ -149,6 +155,80 @@ SK.building = (function () {
 
   /* ---- Перемичка: галерея на рівні 1-го поверху ---- */
   addRoom('C', 1, '101', 'hall', -15, 2, 10.5, 21.5, 'Перемичка — галерея');
+
+  /* ---- Реальні номери аудиторій (розклад ННІФТКН, js/data/real-schedule.js) ----
+     Геометрія приміщень орієнтовна; номери, тип і місткість — за реальним розкладом.
+     На кожному поверсі найбільші аудиторії розкладу отримують найбільші приміщення;
+     приміщення, яким не вистачило аудиторії з розкладу, стають кафедрами й кабінетами. */
+  var REAL = (SK.realSchedule && SK.realSchedule.rooms) || [];
+  var realInfo = {};
+  REAL.forEach(function (x) { realInfo[x[0]] = { id: x[0], lecture: x[1], practice: x[2], lab: x[3], maxPeople: x[4] }; });
+  /* Нульовий поверх: потокові зали та лабораторії без номера поверху — вручну */
+  var FLOOR0 = { 'Б-009': '3', 'Б-010': '2', 'Б-001': '1', 'Б-002': '8', 'Б-004': '7', 'Б-005': '9',
+    'А-017': 'В4', 'А-016': 'В10', 'А-009': '24П' };
+  var OFFICE_NAMES = ['Кафедра', 'Викладацька', 'Лабораторантська', 'Кабінет завідувача кафедри', 'Методичний кабінет', 'Кабінет наукових працівників'];
+  var SVC_CODE = { hall: 'Х', smoking: 'К', tech: 'Т' };
+  function realType(info, slotType) {
+    var lab = info.lab > info.lecture + info.practice, lec = info.lecture > info.practice + info.lab;
+    if (slotType === 'computer' && !lec) return 'computer';
+    if (lab) return 'lab';
+    if (lec || info.maxPeople >= 45) return 'lecture';
+    return 'seminar';
+  }
+  function applyReal(r, id, info) {
+    r.id = id; r.real = true;
+    r.type = info.forceType || realType(info, r.type);
+    r.bookable = true; r.closed = false;
+    r.capacity = Math.max(12, Math.round(r.area / (r.type === 'lecture' ? 1.3 : 2.2)));
+    if (info.maxPeople > r.capacity) r.capacity = info.maxPeople;   // ярусна зала: місць за розкладом
+    r.pcs = r.type === 'computer' ? Math.round(r.capacity * 0.8) : undefined;
+    r.name = TYPES[r.type].name;
+    r.label = /^\d$/.test(id) ? 'ауд. ' + id : id;
+  }
+  if (REAL.length) {
+    var oldIds = {};
+    rooms.forEach(function (r) { oldIds[r.id] = r; });
+    Object.keys(FLOOR0).forEach(function (oid) {
+      var r = oldIds[oid], info = realInfo[FLOOR0[oid]];
+      if (r && info) applyReal(r, FLOOR0[oid], info);
+    });
+    var TEACH = { lecture: 1, computer: 1, lab: 1, seminar: 1, office: 1 };
+    ['A', 'B'].forEach(function (blk) {
+      var L = blk === 'A' ? 'А' : 'Б';
+      for (var f = 1; f <= 4; f++) {
+        var slots = rooms.filter(function (r) { return r.block === blk && r.floor === f && TEACH[r.type]; })
+          .sort(function (a, b) { return b.area - a.area || (b.type === 'lecture') - (a.type === 'lecture'); });
+        var reals = REAL.filter(function (x) { var m = x[0].match(/^([АБ])-(\d)/); return m && m[1] === L && +m[2] === f; })
+          .map(function (x) { return realInfo[x[0]]; })
+          .sort(function (a, b) { return b.maxPeople - a.maxPeople; });
+        var used = {};
+        reals.forEach(function (info, i) { if (slots[i]) { applyReal(slots[i], info.id, info); used[info.id.slice(2)] = 1; } });
+        /* Решта — кафедри й кабінети з вільними номерами поверху */
+        var num = 1, oi = 0;
+        slots.slice(reals.length).sort(function (a, b) { return a.y0 - b.y0 || a.x0 - b.x0; }).forEach(function (r) {
+          while (used[f + pad2(num)]) num++;
+          used[f + pad2(num)] = 1;
+          if (r.type !== 'office') { r.type = 'office'; r.bookable = false; r.capacity = 0; r.pcs = undefined;
+            r.name = OFFICE_NAMES[oi++ % OFFICE_NAMES.length]; }
+          r.id = L + '-' + f + pad2(num);
+        });
+        /* Службові приміщення поверху — літерні коди, щоб не займати номерів аудиторій */
+        var wcN = 0;
+        rooms.filter(function (r) { return r.block === blk && r.floor === f && !TEACH[r.type] && !r.real; })
+          .forEach(function (r) {
+            if (r.type === 'stairs') { if (/-\d{3}$/.test(r.id)) r.id = L + '-' + f + 'С'; }
+            else if (r.type === 'wc') r.id = L + '-' + f + (/чолов/.test(r.name) ? 'Ч' : 'Ж');
+            else if (r.type === 'cowork') r.id = L + '-' + f + 'КВ';
+            else r.id = L + '-' + f + (SVC_CODE[r.type] || 'С') + (r.type === 'tech' && blk === 'B' ? 'В' : '');
+          });
+      }
+    });
+  }
+  rooms.forEach(function (r) { if (!r.label) r.label = r.id; });
+  (function () {
+    var seen = {};
+    rooms.forEach(function (r) { if (seen[r.id]) throw new Error('Дубль номера приміщення ' + r.id); seen[r.id] = 1; });
+  })();
 
   var byId = {};
   rooms.forEach(function (r) { byId[r.id] = r; });
@@ -173,7 +253,8 @@ SK.building = (function () {
 
   return {
     name: 'Навчальний корпус № 9 ЧНУ (ННІФТКН)',
-    note: 'Габарити — за попередньою схемою; поділ на аудиторії — демонстраційний.',
+    note: 'Габарити — за попередньою схемою; номери аудиторій — за реальним розкладом ННІФТКН, розташування приміщень на поверсі — орієнтовне.',
+    realInfo: realInfo,
     blocks: blocks, rooms: rooms, corridors: corridors, types: TYPES, nav: nav,
     room: function (id) { return byId[id]; }, blockById: blockById, whereText: whereText,
     minFloor: MIN_FLOOR, maxFloor: MAX_FLOOR, floorNames: FLOOR_NAMES, floorH: FH,

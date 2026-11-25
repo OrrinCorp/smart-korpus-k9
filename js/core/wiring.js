@@ -56,6 +56,7 @@ SK.wiring = (function () {
     turnstile: [['Контролер доступу (біометрія)', 'RDR'], ['Atom Argon', 'DO']],
     board: [['PoE-комутатор 24 порти', 'POE']], signage: [['PoE-комутатор 24 порти', 'POE']],
     camera: [['PoE-комутатор 24 порти', 'POE']], wifi: [['PoE-комутатор 24 порти', 'POE']],
+    counter: [['PoE-комутатор 24 порти', 'POE']], counterDoor: [['PoE-комутатор 24 порти', 'POE']],
     server: [['PoE-комутатор 24 порти', 'POE']], accsrv: [['PoE-комутатор 24 порти', 'POE']], console: [['PoE-комутатор 24 порти', 'POE']],
     upscab: [['Atom Cobalt', 'RS485']], upsc: [['Atom Cobalt', 'RS485']],
     ats: [['Atom Cobalt', 'RS485'], ['Atom Argon', 'DI']], gen: [['Atom Cobalt', 'RS485'], ['Atom Argon', 'DI']],
