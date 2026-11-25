@@ -6,7 +6,8 @@ SK.dashboard = (function () {
 
   var ui = { tab: 'overview', colorMode: 'status', room: null, lastIn: {},
     rf: { block: '', floor: '', status: '', type: '' }, evFilter: 'all', secRoom: null,
-    device: null, devCats: null, df: { cat: '', floor: '', status: '' }, rcDur: '90' };
+    device: null, devCats: null, df: { cat: '', floor: '', status: '' }, rcDur: '90',
+    ef: { date: '', scope: 'all', block: 'A', floor: '2', room: '', device: '' }, lg: null };
   var viewer, pressing = false;
 
   function now() { return store.clock.now(); }
@@ -118,7 +119,7 @@ SK.dashboard = (function () {
       if (part.indexOf('inst=') === 0) { var iid = decodeURIComponent(part.slice(5)); setTimeout(function () { ui.wCab = iid.split('/')[0]; setTab('wiring'); SK.adminTabs.focusInst(iid); }, 150); }   // #wiring&admin&inst=ЩА-А2/KR1
     });
     if (hp.indexOf('plan') >= 0) setTimeout(function () { $('#planBtn').click(); }, 100);   // index.html#overview&admin&plan
-    if (/^(overview|control|rooms|events|scenarios|comfort|security|access|energy|power|wiring|territory|equipment|settings|devices)$/.test(hashTab)) setTab(hashTab === 'devices' ? 'equipment' : hashTab);
+    if (/^(overview|control|rooms|events|scenarios|comfort|security|access|logs|energy|power|wiring|territory|equipment|settings|devices)$/.test(hashTab)) setTab(hashTab === 'devices' ? 'equipment' : hashTab);
     if (hashTab === 'devices') setDevCats(Object.keys(DEV.CATS));
     /* index.html#room=А-305 — одразу відкрити модель кімнати */
     if (/^room=/.test(hashTab)) { var rid = findRoom(decodeURIComponent(hashTab.slice(5))); if (rid) setTimeout(function () { SK.RoomView.open(rid); }, 200); }
@@ -131,13 +132,13 @@ SK.dashboard = (function () {
     { id: 'ctl', icon: 'sliders', name: 'Керування', sub: 'Диспетчерська й автоматичні сценарії', tabs: ['control', 'scenarios'] },
     { id: 'sched', icon: 'calendar', name: 'Розклад', sub: 'Аудиторії, бронювання, події', tabs: ['rooms', 'events'] },
     { id: 'climate', icon: 'thermo', name: 'Клімат', sub: 'Температура, CO₂, освітлення', tabs: ['comfort'] },
-    { id: 'sec', icon: 'shield', name: 'Безпека', sub: 'Сповіщення й доступ за відбитком', tabs: ['security', 'access'] },
+    { id: 'sec', icon: 'shield', name: 'Безпека', sub: 'Сповіщення, доступ за відбитком, журнали', tabs: ['security', 'access', 'logs'] },
     { id: 'energy', icon: 'bolt', name: 'Енергія', sub: 'Споживання й резервне живлення', tabs: ['energy', 'power'] },
     { id: 'infra', icon: 'chip', name: 'Техніка', sub: 'Пристрої, комутація, територія', tabs: ['equipment', 'wiring', 'territory'] },
     { id: 'cfg', icon: 'gear', name: 'Система', sub: 'Налаштування прототипу', tabs: ['settings'] }
   ];
   var TAB_ICON = { overview: 'home', control: 'sliders', scenarios: 'layers', rooms: 'calendar', events: 'megaphone', comfort: 'thermo',
-    security: 'bell', access: 'finger', energy: 'chart', power: 'battery', equipment: 'radar', wiring: 'cable', territory: 'car', settings: 'gear' };
+    security: 'bell', access: 'finger', logs: 'doc', energy: 'chart', power: 'battery', equipment: 'radar', wiring: 'cable', territory: 'car', settings: 'gear' };
   function tabName(t) { var b = document.querySelector('#tabs button[data-tab="' + t + '"]'); return b ? b.firstChild.textContent.trim() : t; }
   function groupOf(t) { for (var i = 0; i < NAV.length; i++) if (NAV[i].tabs.indexOf(t) >= 0) return NAV[i].id; return 'home'; }
   function navGroup(id) { return NAV.filter(function (x) { return x.id === id; })[0]; }
@@ -224,7 +225,7 @@ SK.dashboard = (function () {
   /* ---------- Що бачить кожна роль ---------- */
   var ALL = ['guest', 'responsible', 'admin'], STAFF = ['responsible', 'admin'], ADM = ['admin'];
   var TAB_ROLES = { overview: ALL, rooms: ALL, events: ALL, comfort: ALL, energy: STAFF, territory: ALL,
-    control: STAFF, scenarios: STAFF, security: STAFF, access: STAFF, power: STAFF, wiring: ADM, equipment: ADM, settings: ADM };
+    control: STAFF, scenarios: STAFF, security: STAFF, access: STAFF, logs: STAFF, power: STAFF, wiring: ADM, equipment: ADM, settings: ADM };
   /* Категорії пристроїв на карті: гість — не бачить, відповідальна особа — без мережі/живлення */
   var CAT_ROLES = { guest: [], responsible: ['sensors', 'control', 'boards', 'access', 'safety', 'territory'], admin: null };
   function tabAllowed(t) { return (TAB_ROLES[t] || ADM).indexOf(role()) >= 0; }
@@ -255,7 +256,7 @@ SK.dashboard = (function () {
 
   function setTab(t) {
     if (!tabAllowed(t)) t = 'overview';
-    if (ui.tab === 'wiring' && t !== 'wiring' && viewer) { viewer.setFocus(null); viewer.setWiring(null); SK.adminTabs.clearFocus(); }
+    if (ui.tab === 'wiring' && t !== 'wiring' && viewer) { viewer.setFocus(null); viewer.setWiring(null); SK.adminTabs.clearFocus(); SK.adminTabs.hideTrays(); }
     ui.tab = t;
     ui.lastIn[groupOf(t)] = t;
     renderNav();
@@ -397,7 +398,9 @@ SK.dashboard = (function () {
     var HEND = 'aria-label="Закрити">✕</button></div>', iso = viewer.getIsolated() === r.id;
     h = h.replace(HEND, HEND + '<div class="row dc-acts">' + (role() !== 'guest' ? '<button class="btn small primary" data-act="model" title="Окрема 3D-модель приміщення (або подвійний клік на карті)">' + SK.icon('cube', 'ico sm') + 'Модель кімнати</button>' : '') +
       '<button class="btn small' + (iso ? ' on' : '') + '" data-act="iso" title="Показати лише це приміщення">' + (iso ? SK.icon('x', 'ico sm') + 'Показати все' : SK.icon('target', 'ico sm') + 'Окремо') + '</button>' +
-      '<button class="btn small" data-act="focus" title="Наблизити камеру">' + SK.icon('search', 'ico sm') + 'Наблизити</button><button class="btn small" data-act="route" title="Як дійти від входу">' + SK.icon('compass', 'ico sm') + 'Маршрут</button></div>');
+      '<button class="btn small" data-act="focus" title="Наблизити камеру">' + SK.icon('search', 'ico sm') + 'Наблизити</button><button class="btn small" data-act="route" title="Як дійти від входу">' + SK.icon('compass', 'ico sm') + 'Маршрут</button>' +
+      (role() !== 'guest' ? '<button class="btn small" data-act="energy" title="Споживання приміщення за добу">' + SK.icon('chart', 'ico sm') + 'Споживання</button>' +
+        '<button class="btn small" data-act="log" title="Журнали датчиків і дверей приміщення">' + SK.icon('doc', 'ico sm') + 'Журнал</button>' : '') + '</div>');
     setCard(box, h, 'room:' + r.id);
     box.onclick = function (e) {
       var pw = e.target.closest('[data-pwr]');
@@ -410,6 +413,8 @@ SK.dashboard = (function () {
       if (b.dataset.act === 'model') SK.RoomView.open(r.id);
       if (b.dataset.act === 'iso') { var on = viewer.getIsolated() !== r.id; viewer.isolate(on ? r.id : null); setFloorBtn(on ? r.floor : ''); if (!on) viewer.setFloor(null); renderRoomCard(); }
       if (b.dataset.act === 'route') { viewer.route(r.id); viewer.focusRoom(r.id); }
+      if (b.dataset.act === 'energy') showEnergy({ room: r.id });
+      if (b.dataset.act === 'log') showLogs({ kind: 'sensors', room: r.id });
     };
     box.onchange = function (e) {
       if (e.target.id === 'rcDur') { ui.rcDur = e.target.value; e.target.blur(); }
@@ -484,7 +489,7 @@ SK.dashboard = (function () {
     if (soft && ae && p.contains(ae) && /INPUT|SELECT|TEXTAREA/.test(ae.tagName)) return; // не заважаємо введенню
     if (soft && pressing) return;
     var scroll = p.scrollTop;
-    var fn = { overview: overview, rooms: rooms, comfort: comfort, security: security, energy: energy, territory: territory, equipment: equipment, settings: settings }[ui.tab] || (SK.adminTabs || {})[ui.tab];
+    var fn = { overview: overview, rooms: rooms, comfort: comfort, security: security, energy: energy, territory: territory, equipment: equipment, settings: settings, logs: SK.logsTab && SK.logsTab.render }[ui.tab] || (SK.adminTabs || {})[ui.tab];
     /* Періодичне оновлення не повинно стирати те, що користувач уже ввів у поля форми */
     var dirty = {};
     if (fromTick) U.$all('input[id], textarea[id]', p).forEach(function (i) {
@@ -776,33 +781,118 @@ SK.dashboard = (function () {
   }
 
   /* ---- Енергія ---- */
+  /* ---- Споживання: кожен пристрій окремо, добовий графік шарами з піком ---- */
   function energy(p) {
-    var n = now(), pw = E.power(n), td = E.today(n), st = store.state.settings, m = n.getHours() * 60 + n.getMinutes();
-    var h = '<h2>Енергоефективність</h2><div class="muted small">Облік за блоками · <span class="demo-badge">демонстраційні дані</span></div>' +
-      '<div class="kpis" style="margin-top:8px">' + kpi(U.fmt(pw.total / 1000, 1) + ' кВт', 'потужність зараз', pw.total / 1000 > st.energyThresholdKw ? 'var(--bad)' : null) +
-      kpi(U.fmt(td.kwh, 0), 'кВт·год сьогодні') + kpi(U.fmt(td.saved, 0), 'кВт·год заощаджено', 'var(--good)') + '</div>';
-    if (pw.total / 1000 > st.energyThresholdKw) h += '<div class="note" style="border-left-color:var(--bad)"><b>Споживання вище за поріг ' + st.energyThresholdKw + ' кВт.</b> Подію записано в журнал.</div>';
-    h += '<h3>Потужність сьогодні, кВт</h3><div id="chDay"></div>';
-    h += '<h3>Споживання за 7 днів, кВт·год</h3><div id="chWeek"></div>';
-    h += '<h3>За блоками зараз</h3><div class="kpis">' + kpi(U.fmt(pw.A / 1000, 1), 'кВт · блок А') + kpi(U.fmt(pw.B / 1000, 1), 'кВт · блок Б') + kpi(U.fmt(pw.C / 1000, 1), 'кВт · перемичка') + '</div>';
-    h += '<h3>Найбільші споживачі</h3><table class="t"><tbody>' + E.topRooms(n, 6).map(function (x) {
-      return '<tr class="click" data-room="' + x.room.id + '"><td><b>' + x.room.id + '</b></td><td class="small">' + esc(x.room.name) + '</td><td>' + U.fmt(x.w / 1000, 2) + ' кВт</td></tr>';
-    }).join('') + '</tbody></table>';
-    h += '<div class="note">Потенціал заощадження: порівнюється фактичний режим з автоматикою та розрахунковий режим «без автоматики» (світло, проєктори й ПК працюють від першої пари до 18:00). ' + '</div>';
-    h += '<div class="row"><span>Поріг сповіщення:</span>' + (SEC.can('settings') ? '<input type="number" id="thr" value="' + st.energyThresholdKw + '" min="5" max="500" style="width:80px"> кВт <button class="btn small" id="thrSave">Зберегти</button>' : '<b>' + st.energyThresholdKw + ' кВт</b>') + '</div>';
+    var DP = SK.devpower, n = now(), st = store.state.settings, ef = ui.ef;
+    var dateKey = ef.date || U.dateKey(n), date = new Date(dateKey + 'T12:00:00'), isToday = dateKey === U.dateKey(n);
+    var m = n.getHours() * 60 + n.getMinutes();
+    var f = { scope: ef.scope, block: ef.block, floor: ef.floor, room: ef.room, device: ef.device };
+    if (f.scope === 'device' && !f.device) f.scope = f.room ? 'room' : 'all';
+    if (f.scope === 'room' && !f.room) f.scope = 'all';
+    var ser = DP.series(date, f), pk = DP.peak(ser), kwhDay = DP.kwh(ser);
+    var done = isToday ? ser.filter(function (x) { return x.t + DP.STEP <= m; }) : ser, kwhDone = DP.kwh(done);
+    var nowW = isToday ? (ser.filter(function (x) { return x.t <= m; }).slice(-1)[0] || { total: 0 }).total : null;
+    var big = !f.scope || f.scope === 'all', unitK = (pk && pk.total < 2000) ? 1 : 1000, uN = unitK === 1 ? 'Вт' : 'кВт';
+    function W_(w, d) { return U.fmt(w / unitK, d != null ? d : (w / unitK < 10 ? 2 : 1)) + ' ' + uN; }
+    var scopeTitle = f.scope === 'device' ? DP.entries.filter(function (e) { return e.id === f.device; })[0].name :
+      f.scope === 'room' ? f.room + ' · ' + B.room(f.room).name : f.scope === 'floor' ? B.blockById(f.block).name + ', поверх ' + f.floor :
+      f.scope === 'block' ? B.blockById(f.block).name : f.scope === 'system' ? 'система «Розумний корпус»' : 'увесь корпус';
+
+    var rooms = B.rooms.slice().sort(function (a, b) { return a.id.localeCompare(b.id, 'uk'); });
+    var h = '<h2>Споживання</h2><div class="muted small">Потужність кожного пристрою — за паспортом і станом (сценарій, розклад, люди, ручні команди). ' +
+      '<span class="demo-badge">симуляція</span></div>';
+    h += '<div class="ef-row"><input type="date" id="efDate" value="' + dateKey + '" title="Дата">' +
+      sel('efScope', [['all', 'Увесь корпус'], ['system', 'Лише система «Розумний корпус»'], ['block', 'Блок'], ['floor', 'Поверх'], ['room', 'Приміщення'], ['device', 'Окремий пристрій']], ef.scope) +
+      (ef.scope === 'block' || ef.scope === 'floor' ? sel('efBlock', [['A', 'Блок А'], ['B', 'Блок Б']].concat(ef.scope === 'block' ? [['C', 'Перемичка'], ['T', 'Територія']] : []), ef.block) : '') +
+      (ef.scope === 'floor' ? sel('efFloor', [0, 1, 2, 3, 4].map(function (x) { return [String(x), 'поверх ' + x]; }), ef.floor) : '') +
+      (ef.scope === 'room' || ef.scope === 'device' ? sel('efRoom', [['', '— приміщення —']].concat(rooms.map(function (r) { return [r.id, r.id + ' · ' + r.name]; })), ef.room) : '') +
+      (ef.scope === 'device' && ef.room ? sel('efDev', [['', '— пристрій —']].concat(DEV.devices.filter(function (d) { return d.room === ef.room; }).map(function (d) { return [d.id, DEV.KINDS[d.kind].name + ' · ' + d.id]; })), ef.device) : '') +
+      (isToday ? '' : '<button class="btn small" id="efToday">Сьогодні</button>') + '</div>';
+    h += '<div class="small muted">Показано: <b>' + esc(scopeTitle) + '</b>, ' + U.DAYS[U.dow(date)].toLowerCase() + ' ' + dateKey.split('-').reverse().join('.') + '</div>';
+
+    h += '<div class="kpis" style="margin-top:8px">' +
+      (isToday ? kpi(W_(nowW), 'потужність зараз', big && nowW / 1000 > st.energyThresholdKw ? 'var(--bad)' : null) : kpi(W_(kwhDay * 1000 / 24), 'середня за добу')) +
+      kpi(pk ? W_(pk.total) : '—', pk ? 'пік о ' + U.minToHHMM(pk.t) : 'пік', 'var(--bad)') +
+      kpi(U.fmt(isToday ? kwhDone : kwhDay, kwhDay < 10 ? 2 : 0) + ' кВт·год', isToday ? 'спожито до ' + U.minToHHMM(m) + ' · за добу ≈ ' + U.fmt(kwhDay, kwhDay < 10 ? 2 : 0) : 'спожито за добу') + '</div>';
+    h += '<h3>Потужність протягом доби, ' + uN + '</h3><div id="chStack"></div>' +
+      '<div class="small muted">Крок 5 хв. ' + (isToday ? 'Після позначки «зараз» — розрахунок за розкладом і сценаріями. ' : '') + 'Наведіть на графік — склад потужності в цей момент.</div>';
+
+    /* Складові доби */
+    var tot = {}; DP.LAYERS.forEach(function (L) { tot[L.id] = 0; });
+    ser.forEach(function (x) { DP.LAYERS.forEach(function (L) { tot[L.id] += x.layers[L.id] * DP.STEP / 60 / 1000; }); });
+    h += '<div class="layer-legend">' + DP.LAYERS.slice().reverse().filter(function (L) { return tot[L.id] > 0; }).map(function (L) {
+      return '<span title="' + esc(L.note || L.name) + '"><i style="background:' + L.css + '"></i>' + esc(L.name) + '</span><span class="num">' + U.fmt(tot[L.id], tot[L.id] < 10 ? 2 : 1) + ' кВт·год</span>' +
+        '<span class="pct">' + Math.round(tot[L.id] / (kwhDay || 1) * 100) + ' %</span>';
+    }).join('') + '</div>';
+
+    /* Пік: з чого складається і хто створює */
+    if (pk && pk.total > 0) {
+      var who = DP.at(date, f, pk.t, 6);
+      h += '<div class="peak-box"><div class="row"><span class="grow">Пікове споживання</span><b class="big" style="color:var(--bad)">' + W_(pk.total) + '</b></div>' +
+        '<div class="small">о ' + U.minToHHMM(pk.t) + '–' + U.minToHHMM(pk.t + DP.STEP) + ' · ' + DP.LAYERS.slice().reverse().filter(function (L) { return pk.layers[L.id] > 0; }).map(function (L) {
+          return '<span style="white-space:nowrap"><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + L.css + '"></i> ' + esc(L.short) + ' ' + Math.round(pk.layers[L.id] / pk.total * 100) + ' %</span>';
+        }).join(' · ') + '</div>' +
+        (f.scope !== 'device' ? '<table class="t" style="margin-top:6px"><tbody>' + who.map(function (x) {
+          return '<tr' + (x.e.dev ? ' class="click" data-edev="' + esc(x.e.id) + '"' : x.e.room ? ' data-room="' + esc(x.e.room) + '"' : '') + '><td class="small">' + (x.e.dev ? DEV.KINDS[x.e.kind].icon + ' ' : '') + esc(x.e.name) + '</td>' +
+            '<td class="small" style="text-align:right;white-space:nowrap">' + W_(x.w) + '</td></tr>';
+        }).join('') + '</tbody></table>' : '') + '</div>';
+    }
+
+    /* Рейтинг за добу */
+    if (f.scope !== 'device') {
+      var rk = DP.ranking(date, f, null, 10);
+      h += '<h3>Найбільші споживачі за добу</h3><table class="t"><thead><tr><th>Споживач</th><th style="text-align:right">кВт·год</th><th style="text-align:right">макс.</th></tr></thead><tbody>' + rk.map(function (x) {
+        return '<tr' + (x.e.dev ? ' class="click" data-edev="' + esc(x.e.id) + '"' : x.e.room ? ' data-room="' + esc(x.e.room) + '"' : '') + '><td class="small">' + (x.e.dev ? DEV.KINDS[x.e.kind].icon + ' ' : '') + esc(x.e.name) + '</td>' +
+          '<td style="text-align:right">' + U.fmt(x.kwh, x.kwh < 1 ? 3 : 1) + '</td><td class="small" style="text-align:right;white-space:nowrap">' + W_(x.max) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }
+
+    /* Паспортні дані типів пристроїв у вибірці */
+    var kinds = DP.kindsIn(f);
+    h += '<details class="sec" data-key="ef-pass"' + (f.scope === 'device' ? ' open' : '') + '><summary><h3>Паспортна потужність пристроїв</h3></summary><table class="t"><thead><tr><th>Тип</th><th>шт.</th><th>робота / макс. / черговий, Вт</th></tr></thead><tbody>' +
+      Object.keys(kinds).map(function (k) {
+        var pp = DP.passportOf(k); if (!pp) return '';
+        var P = pp.p, v = P.avg == null ? 'за навантаженням' : U.fmt(P.avg, P.avg < 1 ? 2 : 0) + ' / ' + U.fmt(P.max, P.max < 1 ? 2 : 0) + ' / ' + U.fmt(P.stby, P.stby < 1 ? 2 : 1);
+        return '<tr><td class="small">' + DEV.KINDS[k].icon + ' ' + esc(DEV.KINDS[k].name) + '<div class="muted">' + esc(P.how) + '</div>' +
+          '<div class="muted">' + (pp.src.url ? '<a href="' + esc(pp.src.url) + '" target="_blank" rel="noopener">' + esc(pp.src.t) + ' ↗</a>' : esc(pp.src.t)) + (P.ref ? '<span class="src-ref">довідково</span>' : '') + '</div></td>' +
+          '<td>' + kinds[k] + '</td><td class="small" style="white-space:nowrap">' + v + '</td></tr>';
+      }).join('') + '</tbody></table></details>';
+
+    /* Тиждень і заощадження від автоматики — для всього корпусу */
+    if (big) {
+      var td = E.today(n);
+      h += '<h3>Споживання за 7 днів, кВт·год</h3><div id="chWeek"></div>';
+      h += '<div class="kpis">' + kpi(U.fmt(td.kwh, 0), 'кВт·год сьогодні') + kpi(U.fmt(td.saved, 0), 'заощаджено автоматикою', 'var(--good)') + '</div>';
+      h += '<div class="note">Заощадження: фактичний режим з автоматикою порівнюється з розрахунковим «без автоматики» (світло й техніка увімкнені від першої пари до 18:00).</div>';
+      h += '<div class="row"><span>Поріг сповіщення:</span>' + (SEC.can('settings') ? '<input type="number" id="thr" value="' + st.energyThresholdKw + '" min="5" max="500" style="width:80px"> кВт <button class="btn small" id="thrSave">Зберегти</button>' : '<b>' + st.energyThresholdKw + ' кВт</b>') + '</div>';
+    }
     p.innerHTML = h;
     bindRoomRows(p);
-    var prof = td.profile;
-    SK.charts.line($('#chDay', p), [
-      { name: 'З автоматикою', cls: 's1', values: prof.map(function (x) { return { x: x.t, y: x.kw }; }) },
-      { name: 'Без автоматики (розрахунок)', cls: 's2', dashed: true, values: prof.map(function (x) { return { x: x.t, y: x.kwBase }; }) }
-    ], { xMin: 0, xMax: 24 * 60, xTicks: [0, 360, 720, 1080, 1440], xFmt: U.minToHHMM, unit: 'кВт', threshold: st.energyThresholdKw, label: 'Потужність сьогодні до ' + U.minToHHMM(m) });
-    var wk = E.week(n);
-    SK.charts.bars($('#chWeek', p), wk.map(function (d) {
-      return { label: U.DAYS_SHORT[U.dow(d.date)], title: U.DAYS[U.dow(d.date)] + ', ' + U.dateKey(d.date) + (d.partial ? ' (до цього моменту)' : ''), values: [d.kwh, d.kwhBase], partial: d.partial };
-    }), ['З автоматикою', 'Без автоматики'], { unit: 'кВт·год', label: 'Споживання за 7 днів' });
-    var ts = $('#thrSave', p);
-    if (ts) ts.onclick = function () { st.energyThresholdKw = +$('#thr', p).value || st.energyThresholdKw; store.save(); U.toast('Поріг збережено', 'good'); };
+    U.$all('[data-edev]', p).forEach(function (tr) { tr.addEventListener('click', function () { var d = DEV.device(tr.dataset.edev); if (d) openDevice(d); }); });
+    SK.charts.stack($('#chStack', p), ser, DP.LAYERS, { now: isToday ? m : null, threshold: big ? st.energyThresholdKw : null, scale: unitK, unit: uN, label: 'Потужність за добу: ' + scopeTitle });
+    function setEf(k, v) { ef[k] = v; renderPanel(); }
+    $('#efDate', p).onchange = function (e) { setEf('date', e.target.value === U.dateKey(n) ? '' : e.target.value); };
+    $('#efScope', p).onchange = function (e) { setEf('scope', e.target.value); };
+    ['efBlock', 'efFloor', 'efRoom', 'efDev'].forEach(function (id) {
+      var el2 = $('#' + id, p); if (!el2) return;
+      el2.onchange = function (e) { var k = { efBlock: 'block', efFloor: 'floor', efRoom: 'room', efDev: 'device' }[id]; if (k === 'room') ef.device = ''; setEf(k, e.target.value); };
+    });
+    var tb = $('#efToday', p); if (tb) tb.onclick = function () { setEf('date', ''); };
+    if (big) {
+      var wk = E.week(n);
+      SK.charts.bars($('#chWeek', p), wk.map(function (d) {
+        return { label: U.DAYS_SHORT[U.dow(d.date)], title: U.DAYS[U.dow(d.date)] + ', ' + U.dateKey(d.date) + (d.partial ? ' (до цього моменту)' : ''), values: [d.kwh, d.kwhBase], partial: d.partial };
+      }), ['З автоматикою', 'Без автоматики'], { unit: 'кВт·год', label: 'Споживання за 7 днів' });
+      var ts = $('#thrSave', p);
+      if (ts) ts.onclick = function () { st.energyThresholdKw = +$('#thr', p).value || st.energyThresholdKw; store.save(); U.toast('Поріг збережено', 'good'); };
+    }
+  }
+  /* Відкрити «Журнали» з фільтром на приміщення / пристрій */
+  function showLogs(o) { SK.logsTab.open(o); setTab('logs'); setPanelOpen(true); }
+  /* Відкрити «Споживання» з фільтром на пристрій або приміщення (з картки на карті) */
+  function showEnergy(o) {
+    ui.ef.date = ''; ui.ef.scope = o.device ? 'device' : 'room'; ui.ef.room = o.room || ''; ui.ef.device = o.device || '';
+    setTab('energy'); setPanelOpen(true);
   }
 
   /* ---- Обладнання i3 Engineering ---- */
@@ -982,8 +1072,22 @@ SK.dashboard = (function () {
     var acts = ['<button class="btn small" data-act="fly" title="Наблизити камеру до пристрою">' + SK.icon('target', 'ico sm') + 'На карті</button>'];
     if (d.room) acts.push('<button class="btn small" data-act="room" title="Картка приміщення">' + SK.icon('door', 'ico sm') + ' ' + esc(d.room) + '</button>');
     if (d.room && !G) acts.push('<button class="btn small" data-act="model" title="Окрема 3D-модель приміщення">' + SK.icon('cube', 'ico sm') + 'Модель кімнати</button>');
-    if (A && d.cabinet && !inW) acts.push('<button class="btn small" data-act="wires" title="Траса кабелю до шафи у вкладці «Комутація»">〰 Траса кабелю</button>');
+    if (A && d.cabinet && !inW) acts.push('<button class="btn small" data-act="wires" title="Траса кабелю до шафи у вкладці «Комутація»">' + SK.icon('cable', 'ico sm') + 'Траса кабелю</button>');
+    if (!G && SEC.can('ack')) acts.push('<button class="btn small" data-act="log" title="Журнал цього пристрою (CSV)">' + SK.icon('doc', 'ico sm') + 'Журнал</button>');
     h += '<div class="row dc-acts">' + acts.join('') + '</div>';
+
+    /* Споживання пристрою: зараз, пік і графік доби */
+    var DPw = SK.devpower, pp = DPw.passportOf(d.kind);
+    if (!G && pp) {
+      var dser = DPw.series(n, { scope: 'device', device: d.id }), dpk = DPw.peak(dser), mm = n.getHours() * 60 + n.getMinutes();
+      var wNow = (dser.filter(function (x) { return x.t <= mm; }).slice(-1)[0] || { total: 0 }).total, dk = DPw.kwh(dser);
+      var fw = function (w) { return w >= 1000 ? U.fmt(w / 1000, 2) + ' кВт' : U.fmt(w, w < 1 ? 2 : w < 10 ? 1 : 0) + ' Вт'; };
+      h += '<details open data-key="dev-energy"><summary>Споживання · ' + fw(wNow) + ' зараз</summary>' +
+        '<div class="dc-energy"><div id="dcEnergy"></div><div class="small">' + (dpk && dser.every(function (x) { return Math.abs(x.total - dpk.total) <= Math.max(0.01, dpk.total * 0.02); }) ? 'Постійно ' + fw(dpk.total) : 'Пік ' + (dpk ? fw(dpk.total) + ' о ' + U.minToHHMM(dpk.t) : '—')) +
+          ' · за добу ' + (dk >= 1 ? U.fmt(dk, 2) + ' кВт·год' : U.fmt(dk * 1000, dk < 0.01 ? 2 : 0) + ' Вт·год') + '</div>' +
+        '<div class="small muted">' + esc(pp.p.how) + (pp.p.ref ? ' <span class="src-ref">довідково</span>' : '') + '</div>' +
+        '<button class="btn small" data-act="energy" style="margin-top:6px">' + SK.icon('chart', 'ico sm') + 'Детально в «Споживанні»</button></div></details>';
+    }
 
     /* 3. Підключення та 4. Імітація — лише адміністратор */
     var inst = d.conn && d.conn[0] && d.conn[0].inst;
@@ -992,6 +1096,8 @@ SK.dashboard = (function () {
       h += '<details' + (inW || iss ? ' open' : '') + '><summary>Підключення · ' + esc(d.cabinet) + '</summary>' +
         '<div class="dc-route">' + [[k.icon, 'пристрій'], jb ? [SK.icon('cabinet', 'ico sm'), jb.id] : null, jb ? [SK.icon('cable', 'ico sm'), 'лоток'] : null, [SK.icon('bolt', 'ico sm'), d.cabinet]]
           .filter(Boolean).map(function (x) { return '<span>' + x[0] + ' ' + esc(x[1]) + '</span>'; }).join('<i>→</i>') + '</div>' +
+        (function () { var r = W.route(d); return r ? '<div class="small muted">Траса ≈ ' + Math.round(r.geo) + ' м: ' + r.parts.filter(function (x) { return x.len > 0.3; }).map(function (x) { return esc(x.name) + ' ' + Math.round(x.len) + ' м'; }).join(' · ') +
+          '; кабель з запасом ≈ ' + r.len + ' м' + (d.conn.some(function (l) { return l.bus; }) ? ' (шина: відгалуження від шлейфа)' : '') + '</div>' : ''; })() +
         (d.conn || []).map(function (l) {
           var ps = FL.portState(l, n);
           return '<div class="dc-port"><span class="pdot p-' + ps + '" title="' + esc(PT[ps]) + '"></span><span class="cat-dot" style="background:' + W.BUS[l.type].css + '"></span>' +
@@ -1020,6 +1126,8 @@ SK.dashboard = (function () {
     if (extra) h += '<details><summary>Про пристрій</summary><div class="small muted">' + esc(extra) + '</div></details>';
 
     setCard(box, h, 'dev:' + d.id);
+    var dce = box.querySelector('#dcEnergy');
+    if (dce) SK.charts.stack(dce, SK.devpower.series(n, { scope: 'device', device: d.id }), SK.devpower.LAYERS, { height: 120, now: n.getHours() * 60 + n.getMinutes(), scale: 1, unit: 'Вт', label: 'Споживання пристрою за добу' });
     box.onchange = null;
     box.onclick = function (e) {
       var b = e.target.closest('button'); if (!b || b.disabled) return;
@@ -1030,6 +1138,8 @@ SK.dashboard = (function () {
       if (a === 'room') { ui.device = null; ui.devBack = null; viewer.select(d.room); viewer.focusRoom(d.room); return; }
       if (a === 'model') { SK.RoomView.open(d.room); return; }
       if (a === 'wires') { setTab('wiring'); AT.focusDevice(d); return; }
+      if (a === 'energy') { showEnergy({ device: d.id, room: d.room }); return; }
+      if (a === 'log') { showLogs({ kind: 'sensors', room: d.room, device: d.id }); return; }
       if (a === 'pwr') { AT.toastCmd(CT.toggle(d)); return; }
       if (sm === 'dev') FL.toggleDevice(d);
       if (sm === 'trig') { FL.trigger(d); U.toast('Подію згенеровано — див. «Безпека → Сповіщення»', 'warn'); }
@@ -1091,7 +1201,7 @@ SK.dashboard = (function () {
     rd.readAsArrayBuffer(file);
   }
 
-  return { kpi: kpi, sel: sel, metric: metric, lockedNote: lockedNote, bindRoomRows: bindRoomRows, showDevice: showDevice, setDevCats: setDevCats, openDevice: openDevice, forgetDetails: forgetDetails, renderCard: renderRoomCard,
+  return { showEnergy: showEnergy, showLogs: showLogs, kpi: kpi, sel: sel, metric: metric, lockedNote: lockedNote, bindRoomRows: bindRoomRows, showDevice: showDevice, setDevCats: setDevCats, openDevice: openDevice, forgetDetails: forgetDetails, renderCard: renderRoomCard,
     setFloorBtn: setFloorBtn, renderPanel: renderPanel, now: now, eventsTable: eventsTable,
     init: init, setTab: setTab, get viewer() { return viewer; }, ui: ui, setSimTime: setSimTime, setColorMode: function (m) {
     ui.colorMode = m; $('#colorMode').value = m; viewer.refresh(); renderLegend();

@@ -463,23 +463,12 @@ SK.adminTabs = (function () {
   }
 
   /* =================== КОМУТАЦІЯ =================== */
-  /* Траса кабелю (схематично): пристрій → РК приміщення → вихід у коридор → лоток коридору → шафа */
+  /* Траса кабелю: пристрій → РК приміщення → вихід у коридор → лоток → стояк → шафа (див. SK.wiring.route).
+     k — невеликий зсув по висоті, щоб паралельні лінії одного пристрою не зливалися */
   function route(d, l, k) {
-    var cab = DEV.cabinet(d.cabinet); if (!cab) return [];
-    var dz = (k || 0) * 0.25;
-    var tray = cab.territory ? 0.4 : B.floorZ(cab.block, cab.floor) + B.floorH - 0.35 - dz;
-    var pts = [{ x: d.x, y: d.y, z: d.z }], s;
-    if (d.room && W.jbox(d.room)) {
-      var jb = W.jbox(d.room), dr = jb.door;
-      pts.push({ x: d.x, y: d.y, z: jb.z - dz }, { x: jb.x, y: d.y, z: jb.z - dz }, { x: jb.x, y: jb.y, z: jb.z - dz });
-      s = dr.nx ? { x: dr.x + dr.nx * 1.3, y: jb.y } : { x: jb.x, y: dr.y + (dr.ny || 0) * 1.3 };
-      pts.push({ x: s.x, y: s.y, z: tray });
-    } else { s = { x: d.x, y: d.y }; pts.push({ x: d.x, y: d.y, z: tray }); }
-    if (d.block === 'A' && !cab.territory) pts.push({ x: -24.5, y: s.y, z: tray }, { x: -24.5, y: cab.y, z: tray });
-    else if (d.block === 'B' && !cab.territory) pts.push({ x: s.x, y: 10.5, z: tray }, { x: cab.x, y: 10.5, z: tray });
-    else pts.push({ x: cab.x, y: s.y, z: tray });
-    pts.push({ x: cab.x, y: cab.y, z: tray }, { x: cab.x, y: cab.y, z: cab.z });
-    return pts;
+    var r = l && l.route ? l.route : W.route(d); if (!r) return [];
+    var dz = (k || 0) * 0.18;
+    return r.pts.map(function (p, i) { return i === 0 ? p : { x: p.x, y: p.y, z: p.z - dz }; });
   }
   function cabMarker(cab) {
     return DEV.devices.filter(function (x) { return x.kind === 'cabinet' && x.label === cab.id; })[0];
@@ -489,21 +478,27 @@ SK.adminTabs = (function () {
     var V = D().viewer, f = st.focus;
     if (!f) { V.setFocus(null); return; }
     var links = f.type === 'dev' ? DEV.device(f.id).conn.filter(function (l) { return l.type !== 'WIFI'; })
+      : f.type === 'jb' ? W.forRoom(f.id).filter(function (l) { return l.inst && l.device.cabinet === st.wCab; })
+      : f.type === 'cab' ? W.forCabinet(f.id).filter(function (l) { return l.inst; })
       : W.instances(st.wCab).filter(function (i) { return i.id === f.id; })[0].ports;
     var cab = DEV.cabinet(st.wCab), devs = [], rooms = {}, paths = [], marks = [];
     var cm = cabMarker(cab); if (cm) devs.push(cm);
     links.forEach(function (l, k) {
       var d = l.device; if (devs.indexOf(d) < 0) devs.push(d);
       if (d.room) rooms[d.room] = 1;
-      if (l.type !== 'UP') paths.push({ pts: route(d, l, f.type === 'dev' ? k : 0), color: W.BUS[l.type].color, width: f.type === 'dev' ? 0.16 : 0.09 });
+      if (l.type !== 'UP') paths.push({ pts: route(d, l, f.type === 'dev' ? k : 0), color: W.BUS[l.type].color, width: f.type === 'dev' ? 0.16 : f.type === 'cab' ? 0.05 : 0.09 });
     });
     if (f.type === 'dev') {
       var d0 = DEV.device(f.id), jb = d0.room ? W.jbox(d0.room) : null;
       marks.push({ x: d0.x, y: d0.y, z: d0.z + 0.6, text: (d0.room || d0.label || d0.id), w: 4, dy: 2.4 });
       if (jb) marks.push({ x: jb.x, y: jb.y, z: jb.z, text: 'РК ' + jb.id, w: 3.6, dy: 1.0 });
       marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: cab.id + ' · ' + links.filter(function (l) { return l.inst; }).map(function (l) { return l.inst.short + ' ' + l.port; }).join(', '), w: 6, dy: 2.2 });
-    } else marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: f.id + ' · ' + links.length + ' ліній', w: 6, dy: 2.2 });
-      Object.keys(rooms).forEach(function (rid) { var rr = B.room(rid); marks.push({ x: (rr.x0 + rr.x1) / 2, y: (rr.y0 + rr.y1) / 2, z: rr.z0 + rr.h, text: rid, w: 3, dy: 0.6 }); });
+    } else if (f.type === 'jb') {
+      var jj = W.jbox(f.id);
+      marks.push({ x: jj.x, y: jj.y, z: jj.z, text: jj.id + ' · ' + links.length + ' ліній', w: 5, dy: 1.2 });
+      marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: cab.id, w: 3, dy: 2.2 });
+    } else marks.push({ x: cab.x, y: cab.y, z: cab.z + 1, text: (f.type === 'cab' ? cab.id : f.id) + ' · ' + links.length + ' ліній', w: 6, dy: 2.2 });
+      if (f.type !== 'cab') Object.keys(rooms).forEach(function (rid) { var rr = B.room(rid); marks.push({ x: (rr.x0 + rr.x1) / 2, y: (rr.y0 + rr.y1) / 2, z: rr.z0 + rr.h, text: rid, w: 3, dy: 0.6 }); });
     D().setDevCats(null);
     if (!cab.territory) D().setFloorBtn(cab.floor);
     V.setFocus({ devices: devs, rooms: Object.keys(rooms), paths: paths, marks: marks, floor: cab.territory ? null : cab.floor });
@@ -537,6 +532,16 @@ SK.adminTabs = (function () {
         '<button class="btn small" data-wf="card" title="Відкрити картку пристрою">Картка</button>' +
         (inst0 ? '<button class="btn small" data-wf="inst" data-inst="' + esc(inst0.id) + '" title="Усі лінії цього контролера">Усі лінії ' + esc(inst0.short) + '</button>' : '') +
         '<button class="btn small" data-wf="clear">' + SK.icon('x', 'ico sm') + 'Показати все</button></div>';
+    } else if (f.type === 'cab' || f.type === 'jb') {
+      var ls = f.type === 'cab' ? W.forCabinet(f.id).filter(function (l) { return l.inst; }) : W.forRoom(f.id).filter(function (l) { return l.inst && l.device.cabinet === st.wCab; });
+      var len = f.type === 'cab' ? ls.reduce(function (a, l) { return a + (l.bus ? 0 : l.len); }, 0) + W.busesFor(f.id).reduce(function (a, b) { return a + b.len; }, 0)
+        : ls.reduce(function (a, l) { return a + l.len; }, 0), jb = f.type === 'jb' ? W.jbox(f.id) : null, bt = {};
+      ls.forEach(function (l) { bt[l.type] = (bt[l.type] || 0) + 1; });
+      return '<div class="focus-bar" id="wFocus"><span class="small muted">На карті</span><b>' + esc(jb ? jb.id + ' · ' + B.room(f.id).name : 'усі траси ' + f.id) + '</b>' +
+        '<span class="small muted">' + ls.length + ' ліній · ≈ ' + Math.round(len) + ' м</span><span class="grow"></span>' +
+        (jb && SK.RoomView ? '<button class="btn small" data-wf="jbroom" data-room="' + esc(f.id) + '" title="Модель кімнати з усіма пристроями">Модель кімнати</button>' : '') +
+        '<button class="btn small" data-wf="clear">' + SK.icon('x', 'ico sm') + 'Показати все</button></div>' +
+        '<div class="legend-map" style="margin:4px 0 8px">' + Object.keys(bt).map(function (t) { return '<span class="k"><i style="background:' + W.BUS[t].css + '"></i>' + esc(W.BUS[t].name) + ' · ' + bt[t] + '</span>'; }).join('') + '</div>';
     } else {
       var i = W.instances(st.wCab).filter(function (x) { return x.id === f.id; })[0], rooms = {}, cs = FL.ctrlState(i, n);
       i.ports.forEach(function (l) { if (l.device.room) rooms[l.device.room] = 1; });
@@ -563,18 +568,21 @@ SK.adminTabs = (function () {
     if (st.focus) applyFocus();
   }
 
+  var trayShown = false;
+  function hideTrays() { if (trayShown) { D().viewer.setTrays(null); trayShown = false; } }
   function wiring(p) {
     var cab = DEV.cabinet(D().ui.wCab || st.wCab || 'ЩА-А2') || DEV.cabinets[0];
     if (D().ui.wCab && D().ui.wCab !== st.wCab) st.focus = null;
     st.wCab = cab.id; D().ui.wCab = null;
     if (st.focus && st.focus.type === 'dev' && DEV.device(st.focus.id).cabinet !== cab.id) st.focus = null;
+    if (!trayShown) { D().viewer.setTrays(W.network()); trayShown = true; }
     var n = D().now(), links = W.forCabinet(cab.id), insts = W.instances(cab.id), f = st.focus;
     var selDev = f && f.type === 'dev' ? f.id : null, selInst = f && f.type === 'inst' ? f.id : null;
     var cs = PW.cabState(cab.id, n), sum = FL.summary(n);
     var portCnt = { fault: 0, alarm: 0, off: 0, stale: 0, manual: 0 };
     links.forEach(function (l) { if (l.inst) { var ps = FL.portState(l, n); if (portCnt[ps] != null) portCnt[ps]++; } });
 
-    var h = '<h2>Карта комутації</h2><div class="muted small">Кількість портів умовна — звірити з документацією i3 Engineering. Довжини — оцінка.</div>';
+    var h = '<h2>Карта комутації</h2><div class="muted small">Кількість портів умовна — звірити з документацією i3 Engineering. Довжини — по трасах лотків і стояків (оцінка до робочого проєкту).</div>';
     h += '<div class="row" style="margin:8px 0">' + D().sel('wCab', DEV.cabinets.map(function (c) {
       var x = PW.cabState(c.id, n), bad = !x.online || !x.uplink ? ' ⛔' : !x.feedOk || x.upsFault ? ' ⚠' : '';
       return [c.id, c.id + ' · ' + (c.territory ? 'територія' : B.blockById(c.block).name + ', поверх ' + c.floor) + bad]; }), cab.id) +
@@ -595,6 +603,7 @@ SK.adminTabs = (function () {
       '<button class="btn small" data-sim="reset">↺ Скинути шафу</button>' + (sum.any ? '<button class="btn small" data-sim="resetAll">↺ Скинути всі імітації</button>' : '') + '</div></div>';
 
     h += focusCard();
+    h += lineTree(cab, f);
 
     var feed = W.feeds.filter(function (x) { return x.cabinet === cab.id; })[0];
     h += '<h3>Шафа ' + esc(cab.id) + ' — компонування</h3><div class="small muted" style="margin-bottom:4px">≈ ' + cab.units + ' модулів DIN · живлення: ' +
@@ -622,11 +631,10 @@ SK.adminTabs = (function () {
     if (wl.length) h += '<h3>Без порту контролера</h3><div class="small">' + wl.map(function (l) { return esc(l.device.name) + ' — ' + esc(W.BUS[l.type].name) + (l.len ? ' · ' + esc(l.cable) + ' ≈ ' + l.len + ' м' : ''); }).join('<br>') + '</div>';
 
     h += '<h3>Топологія мережі й живлення</h3>' + topology(cab.id);
-    var cb = {}; links.forEach(function (l) { if (l.cable !== '—') cb[l.cable] = (cb[l.cable] || 0) + l.len; });
-    var all = W.cables();
+    var cb = W.cables(cab.id), all = W.cables();
     h += '<h3>Кабельний журнал</h3><table class="t"><thead><tr><th>Кабель</th><th>Шафа ' + esc(cab.id) + '</th><th>Корпус</th></tr></thead><tbody>' + Object.keys(all).map(function (k) {
       return '<tr><td class="small">' + esc(k) + '</td><td>' + (cb[k] ? '≈ ' + cb[k] + ' м' : '—') + '</td><td>≈ ' + all[k] + ' м</td></tr>';
-    }).join('') + '</tbody></table><div class="small muted">Траса «по осях» + 3 м запасу; при проєктуванні додати 10–15 % на лотки й опуски.</div>';
+    }).join('') + '</tbody></table><div class="small muted">Довжини — по трасі (РК → лоток → стояк) + 10 % + 2 м; шини RS-485 / 1-Wire — магістраль один раз + відгалуження до кожного пристрою.</div>';
     p.innerHTML = h;
     $('#wCab', p).onchange = function (e) { st.wCab = e.target.value; st.focus = null; D().viewer.setFocus(null); D().renderPanel(); show(); };
     p.onclick = function (e) {
@@ -645,6 +653,7 @@ SK.adminTabs = (function () {
         if (b.dataset.wf === 'card' && st.focus) D().openDevice(DEV.device(st.focus.id));
         if (b.dataset.wf === 'inst') focusInst(b.dataset.inst);
         if (b.dataset.wf === 'room') SK.RoomView.open(DEV.device(st.focus.id).room);
+        if (b.dataset.wf === 'jbroom') SK.RoomView.open(b.dataset.room);
         return;
       }
       var port = e.target.closest('[data-dev]');            // клітинка порту в SVG
@@ -652,18 +661,71 @@ SK.adminTabs = (function () {
       var mod = e.target.closest('[data-inst]');            // модуль у SVG
       if (mod) { focusInst(mod.dataset.inst); return; }
       var tr = e.target.closest('[data-wdev]');
-      if (tr) focusDevice(DEV.device(tr.dataset.wdev));
+      if (tr) { focusDevice(DEV.device(tr.dataset.wdev)); return; }
+      var jr = e.target.closest('[data-wjb]');
+      if (jr) { st.focus = { type: 'jb', id: jr.dataset.wjb }; D().renderPanel(); applyFocus(); return; }
+      var br = e.target.closest('[data-wbus]');
+      if (br) focusInst(br.dataset.wbus);
     };
     function show() {
-      var c = DEV.cabinet(st.wCab), ls = W.forCabinet(c.id).filter(function (l) { return l.type !== 'WIFI' && l.type !== 'UP'; });
-      D().viewer.setFocus(null);
-      D().viewer.setWiring(ls.map(function (l) { return { a: l.device, b: c, color: W.BUS[l.type].color }; }));
-      var cats = {}; ls.forEach(function (l) { cats[l.device.cat] = 1; });
-      D().setDevCats(Object.keys(cats));
+      var c = DEV.cabinet(st.wCab);
+      st.focus = { type: 'cab', id: c.id }; D().renderPanel(); applyFocus();
       if (!c.territory) { D().setFloorBtn(c.floor); D().viewer.setFloor(c.floor, true); }
-      D().viewer.focusDevice({ block: c.territory ? 'T' : c.block, floor: c.floor, x: c.x, y: c.y + 20, z: c.z });
     }
     if (f && !D().viewer.hasFocus()) setTimeout(applyFocus, 30);
+  }
+
+  /* Схема ліній «шафа → РК приміщень → пристрої». Порядок РК — за відстанню по трасі від шафи.
+     Клік по рядку РК — траси цього приміщення на карті; по значку — лінія пристрою; по шині — увесь шлейф. */
+  function lineTree(cab, f) {
+    var rows = W.jboxesFor(cab.id), loose = W.forCabinet(cab.id).filter(function (l) { return l.inst && !l.jbox; });
+    var all = W.forCabinet(cab.id).filter(function (l) { return l.inst; });
+    var total = all.reduce(function (a, l) { return a + (l.bus ? 0 : l.len); }, 0) + W.busesFor(cab.id).reduce(function (a, b) { return a + b.len; }, 0);
+    var feed = W.feed(cab.id), up = W.uplink(cab.id);
+    var selJb = f && f.type === 'jb' ? f.id : null, selDev = f && f.type === 'dev' ? f.id : null;
+    if (loose.length) rows = rows.concat([{ jb: null, room: null, links: loose, at: 0, len: loose.reduce(function (a, l) { return a + (l.bus ? 0 : l.len); }, 0) }]);
+    var RH = 30, W0 = 412, top = 62, H = top + rows.length * RH + 8, X0 = 22, CH = 18, MAXC = 11;
+    var svg = '<svg viewBox="0 0 ' + W0 + ' ' + H + '" width="100%" class="line-tree" role="img" aria-label="Схема ліній шафи ' + esc(cab.id) + '">';
+    svg += '<rect x="4" y="6" width="176" height="38" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>' +
+      '<text x="14" y="22" font-size="12" font-weight="700" fill="var(--fg)">' + esc(cab.id) + '</text>' +
+      '<text x="14" y="37" font-size="10" fill="var(--fg-2)">' + all.length + ' ліній · ≈ ' + Math.round(total).toLocaleString('uk-UA') + ' м кабелю</text>' +
+      '<text x="190" y="20" font-size="10" fill="var(--muted)">живлення: ГРЩ А-003 → ≈ ' + feed.len + ' м</text>' +
+      '<text x="190" y="34" font-size="10" fill="var(--muted)">аплінк: серверна А-002 → ≈ ' + up.len + ' м</text>';
+    svg += '<line x1="' + X0 + '" y1="44" x2="' + X0 + '" y2="' + (top + (rows.length - 1) * RH + 14) + '" stroke="var(--fg-2)" stroke-width="3" stroke-linecap="round"/>' +
+      '<text x="' + (X0 + 6) + '" y="56" font-size="9" fill="var(--muted)">лоток коридору / стояк</text>';
+    rows.forEach(function (r, i) {
+      var y = top + i * RH, on = selJb && r.room === selJb, cy = y + 14;
+      var types = {}; r.links.forEach(function (l) { types[l.type] = 1; });
+      svg += '<g class="lt-row' + (on ? ' on' : '') + '"' + (r.room ? ' data-wjb="' + esc(r.room) + '"' : '') + ' style="cursor:' + (r.room ? 'pointer' : 'default') + '">' +
+        '<rect x="' + (X0 + 8) + '" y="' + (y + 1) + '" width="' + (W0 - X0 - 10) + '" height="' + (RH - 2) + '" rx="6" fill="' + (on ? 'var(--accent-soft)' : 'transparent') + '"/>' +
+        '<title>' + esc((r.jb ? r.jb.id + ' · ' + B.room(r.room).name : 'Без РК (коридор, хол)') + ' — ' + r.links.length + ' ліній, ≈ ' + Math.round(r.len) + ' м (без шин); від шафи по трасі ≈ ' + Math.round(r.at) + ' м') + '</title>' +
+        '<line x1="' + X0 + '" y1="' + cy + '" x2="' + (X0 + 24) + '" y2="' + cy + '" stroke="var(--fg-2)" stroke-width="2"/>' +
+        '<circle cx="' + X0 + '" cy="' + cy + '" r="3" fill="var(--fg-2)"/>' +
+        '<rect x="' + (X0 + 24) + '" y="' + (y + 5) + '" width="92" height="19" rx="4" fill="var(--panel-2)" stroke="' + (on ? 'var(--accent)' : 'var(--line)') + '"/>' +
+        '<text x="' + (X0 + 30) + '" y="' + (y + 18) + '" font-size="10.5" font-weight="700" fill="var(--fg)">' + esc(r.jb ? r.jb.id : 'Коридор / хол') + '</text>' +
+        '<text x="' + (X0 + 112) + '" y="' + (y + 18) + '" font-size="9" fill="var(--muted)" text-anchor="end"></text>';
+      var devs = []; r.links.forEach(function (l) { if (devs.indexOf(l.device) < 0) devs.push(l.device); });
+      devs.slice(0, MAXC).forEach(function (d, k) {
+        var x = X0 + 124 + k * (CH + 3), l0 = d.conn.filter(function (l) { return l.inst; })[0], sel = d.id === selDev;
+        svg += '<g data-wdev="' + esc(d.id) + '" style="cursor:pointer"><title>' + esc((d.label || DEV.KINDS[d.kind].name) + ' · ' + (l0 ? l0.port + ' · ' + W.BUS[l0.type].name + (l0.bus ? ' (шина)' : ' · ≈ ' + l0.len + ' м') : '')) + '</title>' +
+          '<rect x="' + (x - 1) + '" y="' + (y + 4) + '" width="' + (CH + 2) + '" height="' + (CH + 3) + '" rx="4" fill="' + (sel ? 'var(--accent-soft)' : 'var(--panel-2)') + '" stroke="' + (sel ? 'var(--accent)' : 'none') + '"/>' +
+          '<svg x="' + (x + 2) + '" y="' + (y + 6) + '" width="' + (CH - 4) + '" height="' + (CH - 4) + '" viewBox="0 0 24 24"><path d="' + SK.icons.path(DEV.KINDS[d.kind].ic) + '" fill="none" stroke="var(--fg-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '<rect x="' + x + '" y="' + (y + CH + 3) + '" width="' + CH + '" height="3" rx="1.5" fill="' + (l0 ? W.BUS[l0.type].css : 'var(--line)') + '"/></g>';
+      });
+      if (devs.length > MAXC) svg += '<text x="' + (X0 + 124 + MAXC * (CH + 3) + 2) + '" y="' + (y + 18) + '" font-size="10" fill="var(--muted)">+' + (devs.length - MAXC) + '</text>';
+      svg += '<text x="' + (W0 - 6) + '" y="' + (y + 10) + '" font-size="8.5" fill="var(--muted)" text-anchor="end">' + Math.round(r.at) + ' м</text></g>';
+    });
+    svg += '</svg>';
+    var bs = W.busesFor(cab.id);
+    var busHtml = bs.length ? '<div class="bus-list">' + bs.map(function (b) {
+      return '<button class="bus-row" data-wbus="' + esc(b.inst.id) + '" title="Показати весь шлейф на карті"><i style="background:' + W.BUS[b.type].css + '"></i>' +
+        '<b>' + esc(b.type === 'OW' ? '1-Wire' : 'RS-485') + ' · ' + esc(b.inst.short) + '</b><span>' + b.links.length + ' пристр. · ' + b.stops.length + ' РК</span>' +
+        '<span class="muted">магістраль ≈ ' + b.trunk + ' м + відгалуження ≈ ' + b.drops + ' м</span></button>';
+    }).join('') + '</div>' : '';
+    return '<details class="sec" open data-key="w-tree"><summary><h3>Лінії від шафи: РК → пристрої</h3></summary>' +
+      '<div class="small muted" style="margin:2px 0 6px">РК — у порядку від шафи по трасі (праворуч — відстань по лотку). Значок пристрою підкреслено кольором шини. ' +
+      'Кабель: пристрій → РК → лоток коридору → стояк → шафа; запас 10 % + 2 м на розробку кінців.</div>' + svg +
+      (busHtml ? '<div class="small" style="margin:8px 0 4px"><b>Шинні лінії (шлейф через РК, а не окремий кабель на кожен датчик)</b></div>' + busHtml : '') + '</details>';
   }
 
   /* Схема шафи: DIN-рейки з модулями. Кожен порт — клітинка кольору шини; несправність, тривога,
@@ -749,7 +811,7 @@ SK.adminTabs = (function () {
     return s + '</svg></div>';
   }
 
-  return { events: events, scenarios: scenarios, access: access, power: power, wiring: wiring, control: control, setCtlRoom: setCtlRoom, toastCmd: toastCmd, focusDevice: focusDevice, focusInst: focusInst,
+  return { hideTrays: hideTrays, events: events, scenarios: scenarios, access: access, power: power, wiring: wiring, control: control, setCtlRoom: setCtlRoom, toastCmd: toastCmd, focusDevice: focusDevice, focusInst: focusInst,
     PORT_TXT: PORT_TXT, devFocused: function () { return !!(st.focus && st.focus.type === 'dev'); },
     refocus: function () { if (st.focus) applyFocus(); },
     clearFocus: function () { st.focus = null; } };

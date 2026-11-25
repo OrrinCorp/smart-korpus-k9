@@ -271,3 +271,38 @@ table.t .ico.dev-ico { width: 16px; height: 16px; color: var(--fg-2); }
 .toast, #toasts > * { border-radius: 12px !important; }
 #toasts { right: auto; left: 50%; transform: translateX(-50%); top: calc(var(--top-h) + 60px); bottom: auto; align-items: stretch; width: max-content; max-width: min(460px, 90vw); }
 .toast { background: var(--glass); backdrop-filter: blur(12px); box-shadow: var(--shadow); }
+
+/* Схема ліній шафи (Комутація) */
+.line-tree { display: block; margin: 4px 0; }
+.line-tree .lt-row:hover > rect:first-child { fill: var(--panel-2); }
+.bus-list { display: flex; flex-direction: column; gap: 4px; }
+.bus-row { display: grid; grid-template-columns: 10px auto 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left;
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--fg); font-size: 12px; }
+.bus-row:hover { border-color: var(--accent); }
+.bus-row i { width: 10px; height: 10px; border-radius: 3px; grid-row: 1 / span 2; }
+.bus-row span { font-size: 11.5px; } .bus-row .muted { grid-column: 2 / span 2; }
+
+/* Шаровий графік споживання */
+.stack-chart .peak-label { fill: var(--bad); font-size: 11.5px; font-weight: 700; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; }
+.chart-tip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.layer-legend { display: grid; grid-template-columns: 1fr auto auto; gap: 3px 10px; font-size: 12px; margin: 6px 0 2px; align-items: center; }
+.layer-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.layer-legend .num { text-align: right; font-variant-numeric: tabular-nums; }
+.layer-legend .pct { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.ef-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; }
+.ef-row select, .ef-row input { max-width: 100%; }
+.peak-box { border: 1px solid color-mix(in srgb, var(--bad) 45%, var(--line)); background: color-mix(in srgb, var(--bad) 8%, transparent); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+.peak-box b.big { font-size: 20px; }
+.src-ref { font-size: 10px; padding: 0 5px; border-radius: 6px; border: 1px dashed var(--muted); color: var(--muted); margin-left: 4px; white-space: nowrap; }
+
+/* Журнали */
+.lg-seg { margin: 8px 0 4px; box-shadow: none; background: var(--panel-2); border-color: var(--line); }
+.lg-kinds { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; margin: 4px 0; }
+.lg-kinds label { display: inline-flex; align-items: center; gap: 5px; }
+.lg-table { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.lg-table table.t td { white-space: nowrap; }
+table.t tr.bad-row td { background: color-mix(in srgb, var(--bad) 10%, transparent); }
+table.t tr.warn-row td { background: color-mix(in srgb, var(--warn) 9%, transparent); }
+.dc-energy { padding-top: 4px; }
+@media (max-width: 900px) { .panel .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .layer-legend { font-size: 11.5px; } }
+.panel .tabs, .panel .panel-h { flex: none; }

@@ -273,6 +273,12 @@ SK.Viewer = function (container, opts) {
   function yOff(f) { return exploded ? (f || 0) * EXP : 0; }
 
   function applyVisibility() {
+    trayGroup.children.forEach(function (m) {
+      var t = m.userData.tray;
+      m.visible = !plan || t.kind !== 'riser';
+      if (floor !== null) m.visible = m.visible && (t.floor === floor || (t.kind === 'riser' && t.floor < floor) || (t.kind === 'trench' && floor === 0));
+      m.position.y = (m.userData.y0 != null ? m.userData.y0 : (m.userData.y0 = m.position.y)) + yOff(t.kind === 'riser' ? 0 : t.floor);
+    });
     Object.keys(roomMeshes).forEach(function (id) {
       var rm = roomMeshes[id], r = rm.room;
       /* Обраний поверх — яскраво; поверхи нижче — ледь помітно (контекст), вище — приховано */
@@ -328,6 +334,24 @@ SK.Viewer = function (container, opts) {
   }
 
   var focus = null, focusGroup = new THREE.Group(); scene.add(focusGroup);
+  /* Кабельні траси: лотки (під стелею коридорів), стояки (у сходових клітках біля шаф), траншея до території.
+     segs = [{a:{x,y,z}, b:{x,y,z}, kind:'tray'|'link'|'riser'|'trench', floor}] ; null — прибрати */
+  var trayGroup = new THREE.Group(); scene.add(trayGroup);
+  var TRAY_COL = { tray: 0x5f7f8f, link: 0x5f7f8f, riser: 0x22c3dd, trench: 0x9a7b55 };
+  this.setTrays = function (list) {
+    while (trayGroup.children.length) { var c = trayGroup.children.pop(); c.geometry.dispose(); }
+    (list || []).forEach(function (sg) {
+      var A = V(sg.a), Bv = V(sg.b), len = A.distanceTo(Bv); if (len < 0.05) return;
+      var vert = sg.kind === 'riser' || Math.abs(sg.a.z - sg.b.z) > 0.05;
+      var w = vert ? 0.45 : 0.42, h = vert ? len : 0.1, d = vert ? 0.45 : len;
+      var m = new THREE.Mesh(new THREE.BoxGeometry(vert ? w : (Math.abs(sg.a.x - sg.b.x) > 0.01 ? len : w), h, vert ? d : (Math.abs(sg.a.y - sg.b.y) > 0.01 ? len : w)),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: sg.kind === 'riser' ? 0.75 : 0.6, depthWrite: false }));
+      setC(m.material.color, TRAY_COL[sg.kind] || 0x5f7f8f);
+      m.position.copy(A).add(Bv).multiplyScalar(0.5);
+      m.userData.tray = sg; m.renderOrder = 6; trayGroup.add(m);
+    });
+    applyVisibility();
+  };
   function V(p) { return new THREE.Vector3(p.x, p.z, -p.y); }
   /* spec = {devices:[], rooms:[id], paths:[{pts:[{x,y,z}], color}], marks:[{x,y,z,text}], floor} ; null — вимкнути */
   this.setFocus = function (spec) {

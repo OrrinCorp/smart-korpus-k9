@@ -29,12 +29,14 @@
 <script src="../js/core/power.js"></script>
 <script src="../js/core/sensors.js"></script>
 <script src="../js/core/i3-adapter.js"></script>
+<script src="../js/core/devpower.js"></script>
 <script src="../js/core/energy.js"></script>
 <script src="../js/core/security.js"></script>
 <script src="../js/core/devices.js"></script>
 <script src="../js/core/wiring.js"></script>
 <script src="../js/core/faults.js"></script>
 <script src="../js/core/control.js"></script>
+<script src="../js/core/logs.js"></script>
 <script src="../js/viewer/viewer3d.js"></script>
 <script src="../js/viewer/room-viewer.js"></script>
 <script src="../js/ui/charts.js"></script>
@@ -337,6 +339,71 @@
     SK.charts.line(d, [{ name: 'a', cls: 's1', values: [{ x: 0, y: 1 }, { x: 1, y: 3 }] }, { name: 'b', cls: 's2', values: [{ x: 0, y: 2 }, { x: 1, y: 2 }] }], {});
     SK.charts.bars(d, [{ label: 'Пн', values: [1, 2] }], ['a', 'b'], {});
     return d.querySelectorAll('path').length > 0;
+  });
+
+  /* ---------- Кабельні траси ---------- */
+  t('Траси: кожна лінія з портом має маршрут через лоток до шафи', function () {
+    var W = SK.wiring, bad = W.links.filter(function (l) { return l.inst && (!l.route || !isFinite(l.len) || l.len <= 0); });
+    if (bad.length) throw new Error(bad.length + ' без траси, напр. ' + bad[0].device.id);
+    var d = SK.devicesI3.devices.filter(function (x) { return x.room === 'А-305' && x.kind === 'light'; })[0], r = W.route(d), cab = SK.devicesI3.cabinet(d.cabinet);
+    var last = r.pts[r.pts.length - 1];
+    if (Math.abs(last.x - cab.x) > 0.01 || Math.abs(last.y - cab.y) > 0.01) throw new Error('траса не закінчується в шафі');
+    if (!r.parts.some(function (p) { return /РК-А-305/.test(p.name); })) throw new Error('траса не проходить через РК приміщення');
+    return W.links.filter(function (l) { return l.inst; }).length + ' ліній; А-305 світло ≈ ' + r.len + ' м';
+  });
+  t('Траси ортогональні (лише по осях, без «діагоналей» крізь стіни)', function () {
+    var bad = 0;
+    SK.wiring.links.map(function (l) { return l.route; }).concat(SK.wiring.feeds).forEach(function (rt) { if (!rt) return; var p = rt.pts; for (var i = 1; i < p.length; i++) { var ax = (Math.abs(p[i].x - p[i - 1].x) > 0.01) + (Math.abs(p[i].y - p[i - 1].y) > 0.01) + (Math.abs(p[i].z - p[i - 1].z) > 0.01); if (ax > 1) bad++; } });
+    return bad === 0 ? true : (function () { throw new Error(bad + ' косих відрізків'); })();
+  });
+  t('Шини RS-485 / 1-Wire: шлейф коротший за «зірку»', function () {
+    var W = SK.wiring, b = W.buses.filter(function (x) { return x.links.length > 5; })[0];
+    var star = b.links.reduce(function (a, l) { return a + l.route.len; }, 0);
+    return b.len < star ? b.id + ': ' + b.len + ' м проти ' + star + ' м зіркою' : false;
+  });
+  t('Живлення й аплінк шаф ідуть стояками', function () {
+    var W = SK.wiring, f = W.feed('ЩА-А4'), f0 = W.feed('ЩА-А0');
+    return f.len > f0.len && W.uplink('ЩА-Б3').len > 0 ? 'ЩА-А0 ' + f0.len + ' м, ЩА-А4 ' + f.len + ' м' : false;
+  });
+  /* ---------- Енергоспоживання по пристроях ---------- */
+  t('Сума пристроїв = потужність корпусу (узгодженість розділів)', function () {
+    var DP = SK.devpower, d = new Date(mon), snap = DP.snapshot(d), sum = 0; for (var i = 0; i < snap.length; i++) sum += snap[i];
+    var e = SK.energy.power(d).total;
+    if (Math.abs(sum - e) > 1) throw new Error(Math.round(sum) + ' ≠ ' + Math.round(e));
+    return SK.util.fmt(e / 1000, 1) + ' кВт';
+  });
+  t('Добовий профіль: пік у робочий час, шари в сумі дають загальне', function () {
+    var DP = SK.devpower, ser = DP.series(mon), pk = DP.peak(ser), s = 0;
+    Object.keys(pk.layers).forEach(function (k) { s += pk.layers[k]; });
+    if (Math.abs(s - pk.total) > 1) throw new Error('шари не сходяться');
+    return pk.t > 8 * 60 && pk.t < 18 * 60 ? 'пік ' + SK.util.fmt(pk.total / 1000, 1) + ' кВт о ' + SK.util.minToHHMM(pk.t) : false;
+  });
+  t('Пристрій окремо: датчик CO₂ ≈ 0,5 Вт за паспортом', function () {
+    var d = SK.devicesI3.devices.filter(function (x) { return x.kind === 'co2'; })[0], w = SK.devpower.deviceNow(d, mon);
+    return Math.abs(w - 0.5) < 0.01 ? w + ' Вт' : false;
+  });
+  /* ---------- Журнали ---------- */
+  t('Журнал датчиків: рядки й CSV для Excel', function () {
+    var L = SK.logs, per = { from: new Date(mon.getTime() - 3600000), to: mon };
+    var rows = L.sensorRows(per, 15, { scope: 'room', room: 'А-205' }, ['temp', 'co2', 'pir'], 1000);
+    var c = L.csv(L.SENSOR_HEAD, rows);
+    if (c.charCodeAt(0) !== 0xFEFF) throw new Error('немає BOM');
+    if (c.split('\r\n')[0].split(';').length !== L.SENSOR_HEAD.length) throw new Error('заголовок');
+    return rows.length + ' рядків';
+  });
+  t('Журнал дверей: проходи за відбитком і відчинення', function () {
+    var L = SK.logs, per = { from: new Date(mon.getTime() - 3 * 3600000), to: mon }, s = L.doorSummary(per, { scope: 'all' });
+    return s.opens > 0 && s.granted > 0 ? JSON.stringify(s) : false;
+  });
+  t('Журнал тривог містить аналіз CO₂ і події системи', function () {
+    var L = SK.logs, per = { from: new Date(mon.getTime() - 4 * 3600000), to: new Date(mon.getTime() + 4 * 3600000) };
+    var rows = L.alarmRows(per, { scope: 'all' }, 5000);
+    return rows.length ? rows.length + ' записів' : false;
+  });
+  t('Шаровий графік з позначкою піку', function () {
+    var d = document.createElement('div'); d.style.width = '400px'; document.body.appendChild(d);
+    var pk = SK.charts.stack(d, SK.devpower.series(mon), SK.devpower.LAYERS, {});
+    return d.querySelector('.peak-label') && pk ? true : false;
   });
 
   try { localStorage.removeItem('sk9_state_v2'); } catch (e) {}

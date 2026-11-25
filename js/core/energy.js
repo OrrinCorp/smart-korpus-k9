@@ -15,8 +15,9 @@ SK.energy = (function () {
     return { A: work ? 5200 : 1800, B: work ? 2600 : 900, C: work ? 300 : 80 };
   }
 
-  /* Потужність по блоках на момент date, Вт */
+  /* Потужність по блоках на момент date, Вт — сума за всіма пристроями (SK.devpower) + базове навантаження */
   function power(date, opts) {
+    if (SK.devpower) return SK.devpower.byBlock(date, opts);
     var bl = baseLoad(date), res = { A: bl.A, B: bl.B, C: bl.C, total: 0 };
     B.rooms.forEach(function (r) { res[r.block] += SEN.read(r.id, date, opts).power; });
     res.total = res.A + res.B + res.C;
@@ -84,5 +85,5 @@ SK.energy = (function () {
     return false;
   }
 
-  return { power: power, dayProfile: dayProfile, today: today, week: week, topRooms: topRooms, checkThreshold: checkThreshold, STEP: STEP };
+  return { baseLoad: baseLoad, power: power, dayProfile: dayProfile, today: today, week: week, topRooms: topRooms, checkThreshold: checkThreshold, STEP: STEP };
 })();

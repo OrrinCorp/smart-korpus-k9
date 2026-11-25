@@ -78,6 +78,86 @@ SK.charts = (function () {
     legend(container, series);
   }
 
+  /* Шаровий (stacked area) графік потужності з позначкою піку.
+     points: [{t (хв), total, layers:{id:Вт}}]; layers: [{id, name, short, css}] (знизу вгору);
+     opts: {xMax, now (хв, необов'язково), threshold (кВт), unit, label, height, peakText} */
+  function stack(container, points, layers, opts) {
+    opts = opts || {};
+    container.innerHTML = '';
+    container.classList.add('chart', 'stack-chart');
+    var W = container.clientWidth || 410, H = opts.height || 240, m = { l: 40, r: 10, t: 26, b: 24 };
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', height: H, role: 'img', 'aria-label': opts.label || 'Графік потужності' }, container);
+    var k = opts.scale || 1000;                       // Вт → кВт
+    var used = layers.filter(function (L) { return points.some(function (p) { return p.layers[L.id] > 0; }); });
+    var pk = null; points.forEach(function (p) { if (!pk || p.total > pk.total) pk = p; });
+    var ymax = niceMax(Math.max((pk ? pk.total : 0) / k, opts.threshold || 0) * 1.1 || 1);
+    var x1 = opts.xMax || 1440;
+    var X = function (v) { return m.l + v / x1 * (W - m.l - m.r); };
+    var Y = function (v) { return H - m.b - v / ymax * (H - m.t - m.b); };
+    for (var i = 0; i <= 4; i++) {
+      var yv = ymax * i / 4;
+      el('line', { x1: m.l, x2: W - m.r, y1: Y(yv), y2: Y(yv), 'class': 'grid' }, svg);
+      el('text', { x: m.l - 6, y: Y(yv) + 4, 'text-anchor': 'end', 'class': 'axis' }, svg).textContent = U.fmt(yv, ymax < 10 ? 1 : 0);
+    }
+    [0, 360, 720, 1080, 1440].forEach(function (t) {
+      el('text', { x: X(t), y: H - 7, 'text-anchor': t === 0 ? 'start' : t === 1440 ? 'end' : 'middle', 'class': 'axis' }, svg).textContent = U.minToHHMM(t % 1440 === 0 && t ? 1439 : t).replace('23:59', '24:00');
+    });
+    el('text', { x: m.l - 6, y: 12, 'text-anchor': 'end', 'class': 'axis' }, svg).textContent = opts.unit || 'кВт';
+    /* Шари */
+    if (points.length) {
+      var base = points.map(function () { return 0; }), step = points.length > 1 ? points[1].t - points[0].t : 5;
+      used.forEach(function (L) {
+        var top = points.map(function (p, j) { return base[j] + (p.layers[L.id] || 0) / k; });
+        var d = 'M' + X(points[0].t).toFixed(1) + ' ' + Y(base[0]).toFixed(1);
+        points.forEach(function (p, j) { d += 'L' + X(p.t).toFixed(1) + ' ' + Y(top[j]).toFixed(1) + 'L' + X(p.t + step).toFixed(1) + ' ' + Y(top[j]).toFixed(1); });
+        for (var j = points.length - 1; j >= 0; j--) d += 'L' + X(points[j].t + step).toFixed(1) + ' ' + Y(base[j]).toFixed(1) + 'L' + X(points[j].t).toFixed(1) + ' ' + Y(base[j]).toFixed(1);
+        el('path', { d: d + 'Z', fill: L.css, 'fill-opacity': '.85', stroke: 'none' }, svg);
+        base = top;
+      });
+      var tl = points.map(function (p, j) { return (j ? 'L' : 'M') + X(p.t).toFixed(1) + ' ' + Y(p.total / k).toFixed(1) + 'L' + X(p.t + step).toFixed(1) + ' ' + Y(p.total / k).toFixed(1); }).join('');
+      el('path', { d: tl, fill: 'none', stroke: 'var(--fg)', 'stroke-width': 1.2, 'stroke-opacity': '.65' }, svg);
+    }
+    if (opts.threshold) {
+      el('line', { x1: m.l, x2: W - m.r, y1: Y(opts.threshold), y2: Y(opts.threshold), 'class': 'threshold' }, svg);
+      el('text', { x: W - m.r - 2, y: Y(opts.threshold) - 4, 'text-anchor': 'end', 'class': 'axis' }, svg).textContent = 'поріг ' + opts.threshold;
+    }
+    if (opts.now != null) {
+      el('line', { x1: X(opts.now), x2: X(opts.now), y1: m.t - 4, y2: H - m.b, stroke: 'var(--accent)', 'stroke-width': 1.5, 'stroke-dasharray': '4 3' }, svg);
+      el('text', { x: X(opts.now) + 3, y: H - m.b - 4, 'class': 'axis', fill: 'var(--accent)' }, svg).textContent = 'зараз';
+    }
+    /* Пік: вертикальна позначка + підпис */
+    var mn = null; points.forEach(function (p) { if (mn == null || p.total < mn) mn = p.total; });
+    var flat = pk && (pk.total - mn) <= Math.max(0.01, pk.total * 0.02);     // постійне споживання — пік не позначаємо
+    if (pk && pk.total > 0 && !flat) {
+      var px = X(pk.t + (points.length > 1 ? (points[1].t - points[0].t) / 2 : 0)), py = Y(pk.total / k);
+      el('line', { x1: px, x2: px, y1: py, y2: H - m.b, stroke: 'var(--bad)', 'stroke-width': 1.5 }, svg);
+      el('circle', { cx: px, cy: py, r: 5, fill: 'var(--bad)', stroke: 'var(--panel)', 'stroke-width': 2 }, svg);
+      var txt = opts.peakText || ('пік ' + U.fmt(pk.total / k, 1) + ' ' + (opts.unit || 'кВт') + ' о ' + U.minToHHMM(pk.t));
+      var tx = Math.max(m.l + 2, Math.min(W - m.r - 2, px)), anchor = px > W * 0.7 ? 'end' : px < W * 0.3 ? 'start' : 'middle';
+      var lbl = el('text', { x: tx, y: Math.max(12, py - 9), 'text-anchor': anchor, 'class': 'peak-label' }, svg); lbl.textContent = txt;
+    }
+    /* Наведення: значення шарів у точці */
+    var cross = el('line', { y1: m.t, y2: H - m.b, 'class': 'cross', visibility: 'hidden' }, svg);
+    var tip = document.createElement('div'); tip.className = 'chart-tip'; tip.hidden = true; container.appendChild(tip);
+    var hit = el('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent' }, svg);
+    hit.addEventListener('pointermove', function (e) {
+      if (!points.length) return;
+      var rect = svg.getBoundingClientRect(), px2 = (e.clientX - rect.left) * W / rect.width;
+      var tv = (px2 - m.l) / (W - m.l - m.r) * x1, best = null;
+      points.forEach(function (p) { if (p.t <= tv && (!best || p.t > best.t)) best = p; });
+      if (!best) best = points[0];
+      var cx = X(best.t); cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+      var stp = points.length > 1 ? points[1].t - points[0].t : 5;
+      tip.innerHTML = '<b>' + U.minToHHMM(best.t) + '–' + U.minToHHMM(best.t + stp) + ' · ' + U.fmt(best.total / k, 2) + ' ' + (opts.unit || 'кВт') + '</b>' +
+        used.slice().reverse().map(function (L) { var v = best.layers[L.id] || 0; return v ? '<br><span class="sw" style="background:' + L.css + '"></span>' + U.esc(L.short || L.name) + ': ' + U.fmt(v / k, v / k < 1 ? 2 : 1) : ''; }).join('');
+      tip.hidden = false;
+      var left = (cx / W) * rect.width;
+      tip.style.left = Math.min(left + 12, rect.width - 190) + 'px'; tip.style.top = '24px';
+    });
+    hit.addEventListener('pointerleave', function () { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+    return pk;
+  }
+
   /* groups: [{label, values:[v1, v2]}], names: ['...','...'] */
   function bars(container, groups, names, opts) {
     opts = opts || {};
@@ -128,5 +208,5 @@ SK.charts = (function () {
     container.appendChild(lg);
   }
 
-  return { line: line, bars: bars };
+  return { line: line, bars: bars, stack: stack };
 })();
